@@ -22,6 +22,7 @@ enum SelfTest {
         testCompositor()
         testCameraLayout()
         testZoom()
+        testEffects()
         testRecordAndExport(dir: dir)
 
         print(failures == 0 ? "\nAUTOTESTE: TUDO OK" : "\nAUTOTESTE: \(failures) FALHA(S)")
@@ -115,6 +116,77 @@ enum SelfTest {
         out = render()
         p = readPixel(out, x: 540, y: 1850)
         check(p.r < 50 && p.g < 50 && p.b < 50, "zoom 3x + fundo: faixa preta visível")
+    }
+
+    // MARK: - Efeitos retro
+
+    private static func testEffects() {
+        let fl = makeBuffer(width: 3000, height: 1920) { x, y in
+            ((x / 40 + y / 40) % 2 == 0) ? (220, 60, 40) : (40, 120, 220)
+        }
+        let cam = makeBuffer(width: 1280, height: 720) { _, _ in (200, 180, 160) }
+        let compositor = Compositor()
+        compositor.mirrorCamera = false
+        let base = compositor.compose(fl: fl, camera: CameraFrame(image: cam, mask: nil))
+
+        func render(_ image: CIImage) -> (CVPixelBuffer, Double) {
+            let out = makeBuffer(width: 1080, height: 1920) { _, _ in (0, 0, 0) }
+            let start = Date()
+            compositor.render(image, to: out)
+            return (out, Date().timeIntervalSince(start) * 1000)
+        }
+
+        let plain = render(base).0
+        saveSample(plain, name: "0-sem-efeito")
+        let effects = Effects()
+
+        for kind in [Effects.Kind.vhs, .film, .tv] {
+            effects.kind = kind
+            var worst = 0.0
+            var out = plain
+            for frame in 0 ..< 10 {
+                let ctx = Effects.Context(time: Double(frame) / 30, recordingSeconds: kind == .vhs ? 12 : nil)
+                let r = render(effects.apply(base, context: ctx))
+                out = r.0
+                if frame > 1 { worst = max(worst, r.1) }
+            }
+            saveSample(out, name: "efeito-" + kind.rawValue)
+            let a = readPixel(out, x: 540, y: 1200), b = readPixel(plain, x: 540, y: 1200)
+            let changed = abs(a.r - b.r) + abs(a.g - b.g) + abs(a.b - b.b) > 10
+            check(changed, "efeito \(kind.rawValue): imagem alterada")
+            print(String(format: "      efeito %@: pior frame %.1f ms (limite em tempo real: 33 ms)", kind.rawValue, worst))
+            if kind == .tv {
+                let p = readPixel(out, x: 540, y: 1200)
+                check(abs(p.r - p.g) < 12 && abs(p.g - p.b) < 12, "TV antiga: preto e branco (\(p.r),\(p.g),\(p.b))")
+                let corner = readPixel(out, x: 2, y: 2)
+                check(corner.r < 10 && corner.g < 10 && corner.b < 10, "TV antiga: cantos arredondados pretos")
+            }
+        }
+
+        // Glitch: sem graves não mexe; com um golpe forte de graves altera a imagem
+        effects.kind = .glitch
+        var t = 0.0
+        for _ in 0 ..< 60 {   // 2 s de música "calma" para o nível de referência
+            effects.pushLevel(0.2); t += 1.0 / 30
+            _ = effects.apply(base, context: Effects.Context(time: t, recordingSeconds: nil))
+        }
+        t += 1.0
+        _ = effects.apply(base, context: Effects.Context(time: t, recordingSeconds: nil))   // deixa a envolvente cair
+        let quiet = render(effects.apply(base, context: Effects.Context(time: t + 1.0 / 30, recordingSeconds: nil))).0
+        let q = readPixel(quiet, x: 540, y: 1200), b = readPixel(plain, x: 540, y: 1200)
+        check(abs(q.r - b.r) + abs(q.g - b.g) + abs(q.b - b.b) <= 6, "glitch: sem golpe de graves a imagem fica igual")
+
+        effects.pushLevel(1.0)
+        let (hit, ms) = render(effects.apply(base, context: Effects.Context(time: t + 2.0 / 30, recordingSeconds: nil)))
+        saveSample(hit, name: "efeito-glitch-golpe")
+        check(effects.beatAmount > 0.5, String(format: "glitch: golpe de graves detetado (%.2f)", effects.beatAmount))
+        var diff = 0
+        for y in stride(from: 100, to: 1900, by: 150) {
+            let h = readPixel(hit, x: 300, y: y), p = readPixel(plain, x: 300, y: y)
+            if abs(h.r - p.r) + abs(h.g - p.g) + abs(h.b - p.b) > 30 { diff += 1 }
+        }
+        check(diff >= 3, "glitch: imagem alterada no golpe (\(diff) pontos diferentes)")
+        print(String(format: "      efeito glitch: %.1f ms", ms))
     }
 
     // MARK: - Câmara no topo + troca de fundo
@@ -337,6 +409,17 @@ enum SelfTest {
         }
         CVPixelBufferUnlockBaseAddress(pb, [])
         return pb
+    }
+
+    /// Guarda uma imagem PNG de exemplo (se SELFTEST_OUT estiver definido) para inspeção visual.
+    private static func saveSample(_ buffer: CVPixelBuffer, name: String) {
+        guard let dir = ProcessInfo.processInfo.environment["SELFTEST_OUT"] else { return }
+        let url = URL(fileURLWithPath: dir).appendingPathComponent(name + ".png")
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let context = CIContext()
+        let image = CIImage(cvPixelBuffer: buffer)
+        try? context.writePNGRepresentation(of: image, to: url, format: .RGBA8,
+                                            colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!)
     }
 
     private static func makeMask(width: Int, height: Int, fill: (Int, Int) -> UInt8) -> CVPixelBuffer {

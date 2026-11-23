@@ -34,6 +34,10 @@ void ReelsCaptureProcessor::prepareToPlay (double sampleRate, int /*samplesPerBl
 
     loudness.prepare (sampleRate);
     wavRecorder.prepare (sampleRate);
+
+    // Passa-baixo de 1.ª ordem a ~150 Hz para isolar kick/808
+    bassCoeff = (float) (1.0 - std::exp (-2.0 * juce::MathConstants<double>::pi * 150.0 / sampleRate));
+    bassLowpass = 0.0f;
 }
 
 void ReelsCaptureProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
@@ -78,6 +82,21 @@ void ReelsCaptureProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         levels[(size_t) ch].rms.store ((float) std::sqrt (ms));
     }
 
+    // Graves para o "Glitch ao ritmo"
+    {
+        const float* l = buffer.getReadPointer (0);
+        const float* r = buffer.getReadPointer (juce::jmin (1, meterChannels - 1));
+        float lp = bassLowpass, peak = 0.0f;
+        for (int i = 0; i < numSamples; ++i)
+        {
+            lp += bassCoeff * (0.5f * (l[i] + r[i]) - lp);
+            peak = juce::jmax (peak, std::abs (lp));
+        }
+        bassLowpass = lp;
+        float prev = bassPeak.load();
+        while (peak > prev && ! bassPeak.compare_exchange_weak (prev, peak)) {}
+    }
+
     loudness.process (buffer.getArrayOfReadPointers(), meterChannels, numSamples);
     wavRecorder.pushBlock (buffer.getArrayOfReadPointers(), meterChannels, numSamples);
 
@@ -107,6 +126,8 @@ juce::File ReelsCaptureProcessor::getOutputFolder()
 void ReelsCaptureProcessor::editorVisibilityChanged (bool editorIsOpen)
 {
     editorOpen = editorIsOpen;
+    if (! levelTimer.isTimerRunning())
+        levelTimer.startTimerHz (30);
     engineLink.setActive (editorOpen || sessionState != SessionState::idle);
 }
 
@@ -248,9 +269,24 @@ void ReelsCaptureProcessor::setBackgroundImage (const juce::File& image)
     setBackground (bgImage);
 }
 
+void ReelsCaptureProcessor::setEffect (int newId)
+{
+    effectId = juce::jlimit ((int) fxNone, (int) fxTv, newId);
+    static const char* names[] = { "none", "vhs", "film", "glitch", "tv" };
+    engineLink.sendCommand (makeObject ({ { "cmd", "effect" }, { "name", names[effectId - 1] } }));
+}
+
+void ReelsCaptureProcessor::sendBassLevel()
+{
+    const float level = bassPeak.exchange (0.0f);
+    if (effectId == fxGlitch && engineLink.isConnected())
+        engineLink.sendCommand (makeObject ({ { "cmd", "level" }, { "bass", level } }));
+}
+
 void ReelsCaptureProcessor::sendVideoSettings()
 {
     sendCrop();
+    setEffect (effectId);
     setCameraEnabled (cameraEnabled);
     setBackground (backgroundId);
 }
@@ -314,6 +350,7 @@ void ReelsCaptureProcessor::getStateInformation (juce::MemoryBlock& dest)
     xml.setAttribute ("cropY", (double) cropY);
     xml.setAttribute ("zoom", (double) flZoom);
     xml.setAttribute ("camera", cameraEnabled);
+    xml.setAttribute ("effect", effectId);
     xml.setAttribute ("background", backgroundId);
     xml.setAttribute ("backgroundImage", backgroundImage.getFullPathName());
     copyXmlToBinary (xml, dest);
@@ -328,6 +365,7 @@ void ReelsCaptureProcessor::setStateInformation (const void* data, int size)
             cropY = (float) xml->getDoubleAttribute ("cropY", 0.5);
             flZoom = juce::jlimit (1.0f, 4.0f, (float) xml->getDoubleAttribute ("zoom", 1.0));
             cameraEnabled = xml->getBoolAttribute ("camera", true);
+            effectId = juce::jlimit ((int) fxNone, (int) fxTv, xml->getIntAttribute ("effect", fxNone));
             backgroundId = xml->getIntAttribute ("background", bgOriginal);
             const auto path = xml->getStringAttribute ("backgroundImage");
             backgroundImage = juce::File::isAbsolutePath (path) ? juce::File (path) : juce::File();

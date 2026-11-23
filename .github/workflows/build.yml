@@ -84,8 +84,16 @@ jobs:
           auval -v aufx R8cp Rels
 
       - name: Autoteste do motor (recorte, pré-visualização, MP4, sincronização)
+        env:
+          SELFTEST_OUT: ${{ github.workspace }}/amostras
         run: |
           "dist/808-Reels-Capture/808 Reels Engine.app/Contents/MacOS/ReelsEngine" --selftest
+
+      - name: Guardar imagens de exemplo dos efeitos
+        uses: actions/upload-artifact@v4
+        with:
+          name: amostras-efeitos
+          path: amostras/
 
       - name: Testar o arranque do motor
         run: |

@@ -71,6 +71,11 @@ public:
     void setCameraEnabled (bool shouldBeOn);
     void setBackground (int backgroundId);
     void setBackgroundImage (const juce::File& image);
+    // Efeito retro (ids do menu "Efeito")
+    enum EffectId { fxNone = 1, fxVhs, fxFilm, fxGlitch, fxTv };
+    void setEffect (int effectId);
+    int getEffectId() const                { return effectId; }
+
     bool isCameraEnabled() const           { return cameraEnabled; }
     int getBackgroundId() const            { return backgroundId; }
     juce::File getBackgroundImage() const  { return backgroundImage; }
@@ -92,6 +97,7 @@ private:
     void handleEngineEvent (const juce::var& ev);
     void sendCrop();
     void sendVideoSettings();
+    void sendBassLevel();
 
     WavRecorder wavRecorder;
     EngineLink engineLink;
@@ -103,6 +109,12 @@ private:
     float cropY = 0.5f;
     float flZoom = 1.0f;
     bool cameraEnabled = true;
+    int effectId = fxNone;
+
+    // Graves (kick/808) para o efeito "Glitch ao ritmo"
+    std::atomic<float> bassPeak { 0.0f };
+    float bassLowpass = 0.0f, bassCoeff = 0.02f;
+    juce::TimedCallback levelTimer { [this] { sendBassLevel(); } };
     int backgroundId = bgOriginal;
     juce::File backgroundImage;
     float exportProgress = 0.0f;

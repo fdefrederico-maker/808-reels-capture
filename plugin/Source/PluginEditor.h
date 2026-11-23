@@ -29,7 +29,7 @@ private:
     juce::TextButton recordButton, stopButton, exportButton;
     juce::Slider cropSlider, zoomSlider, cropYSlider;
     juce::ToggleButton cameraToggle;
-    juce::ComboBox backgroundBox;
+    juce::ComboBox backgroundBox, effectBox;
     juce::TextButton imageButton;
     std::unique_ptr<juce::FileChooser> fileChooser;
 

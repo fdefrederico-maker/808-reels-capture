@@ -111,6 +111,18 @@ ReelsCaptureEditor::ReelsCaptureEditor (ReelsCaptureProcessor& p)
     };
     addAndMakeVisible (backgroundBox);
 
+    effectBox.addItem ("Nenhum",              P::fxNone);
+    effectBox.addItem ("VHS",                 P::fxVhs);
+    effectBox.addItem ("Filme 8mm",           P::fxFilm);
+    effectBox.addItem ("Glitch ao ritmo",     P::fxGlitch);
+    effectBox.addItem ("TV antiga (P&B)",     P::fxTv);
+    effectBox.setColour (juce::ComboBox::backgroundColourId, colours::background);
+    effectBox.setColour (juce::ComboBox::outlineColourId, colours::panelEdge);
+    effectBox.setColour (juce::ComboBox::textColourId, colours::text);
+    effectBox.setTooltip (pt ("Efeito retro aplicado a todo o vídeo"));
+    effectBox.onChange = [this] { processor.setEffect (effectBox.getSelectedId()); };
+    addAndMakeVisible (effectBox);
+
     imageButton.setButtonText (pt ("Imagem..."));
     imageButton.setTooltip (pt ("Escolher a imagem de fundo (JPG, PNG, HEIC)"));
     imageButton.setColour (juce::TextButton::buttonColourId, colours::panel);
@@ -184,6 +196,7 @@ void ReelsCaptureEditor::syncVideoControls()
 {
     cameraToggle.setToggleState (processor.isCameraEnabled(), juce::dontSendNotification);
     backgroundBox.setSelectedId (processor.getBackgroundId(), juce::dontSendNotification);
+    effectBox.setSelectedId (processor.getEffectId(), juce::dontSendNotification);
     backgroundBox.setEnabled (processor.isCameraEnabled());
     imageButton.setEnabled (processor.isCameraEnabled());
 }
@@ -375,6 +388,8 @@ void ReelsCaptureEditor::paint (juce::Graphics& g)
         g.drawText ("Fundo", backgroundBox.getBounds().withX (videoArea.getX()).withWidth (50),
                     juce::Justification::centredLeft);
 
+        g.drawText ("Efeito", effectBox.getBounds().withX (videoArea.getX()).withWidth (50),
+                    juce::Justification::centredLeft);
         g.drawText ("Zoom FL", zoomSlider.getBounds().withX (videoArea.getX()).withWidth (60),
                     juce::Justification::centredLeft);
         g.drawText (juce::String (zoomSlider.getValue(), 1) + "x",
@@ -480,7 +495,7 @@ void ReelsCaptureEditor::resized()
     {
         auto v = loudnessPanel.reduced (12, 8);
         v.removeFromTop (20 + 54 + 6 + 54 + 22);
-        videoArea = v.removeFromTop (190);
+        videoArea = v.removeFromTop (222);
 
         auto rows = videoArea;
         rows.removeFromTop (20);
@@ -493,6 +508,11 @@ void ReelsCaptureEditor::resized()
         backgroundBox.setBounds (bgRow);
 
         rows.removeFromTop (24);   // nome da imagem de fundo
+        auto fxRow = rows.removeFromTop (26);
+        fxRow.removeFromLeft (50);
+        fxRow.removeFromRight (90);
+        effectBox.setBounds (fxRow);
+        rows.removeFromTop (8);
         auto zoomRow = rows.removeFromTop (24);
         zoomRow.removeFromLeft (66);
         zoomRow.removeFromRight (44);

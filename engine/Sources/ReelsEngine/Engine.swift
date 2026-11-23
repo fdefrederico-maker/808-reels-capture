@@ -22,6 +22,8 @@ final class Engine {
     private lazy var capture = WindowCapture(queue: queue)
     private let camera = CameraCapture()
     private let compositor = Compositor()
+    private let effects = Effects()
+    private let engineStartTicks = HostClock.now()
     private var cameraRunning = false
 
     private var state: State = .idle
@@ -94,8 +96,15 @@ final class Engine {
         var composed: CIImage?
         func image() -> CIImage {
             if let composed { return composed }
-            let img = compositor.compose(fl: capture.latestFrame,
-                                         camera: compositor.cameraEnabled ? camera.latestFrame : nil)
+            let base = compositor.compose(fl: capture.latestFrame,
+                                          camera: compositor.cameraEnabled ? camera.latestFrame : nil)
+            var recordingSeconds: Double?
+            if state == .recording, let recorder {
+                recordingSeconds = max(0, HostClock.seconds(from: recorder.startTicks, to: now))
+            }
+            let img = effects.apply(base, context: Effects.Context(
+                time: HostClock.seconds(from: engineStartTicks, to: now),
+                recordingSeconds: recordingSeconds))
             composed = img
             return img
         }
@@ -225,6 +234,16 @@ final class Engine {
             if let enabled = object["enabled"] as? Bool {
                 compositor.cameraEnabled = enabled
                 updateCamera()
+            }
+
+        case "effect":
+            if let name = object["name"] as? String {
+                effects.kind = Effects.Kind(rawValue: name) ?? .none
+            }
+
+        case "level":
+            if let bass = (object["bass"] as? NSNumber)?.doubleValue {
+                effects.pushLevel(bass)
             }
 
         case "background":
