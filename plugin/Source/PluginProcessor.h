@@ -64,6 +64,7 @@ public:
     void stopRecording();
     void revealLastExport();
     void setCropPosition (float x);
+    void setFraming (float x, float y, float zoom);   // recorte horizontal, vertical e zoom do FL
 
     // Câmara e fundo (ids do menu "Fundo")
     enum BackgroundId { bgOriginal = 1, bgBlur, bgImage, bgBlack, bgWhite, bgGrey, bgGreen };
@@ -77,6 +78,8 @@ public:
     SessionState getSessionState() const   { return sessionState; }
     double getSecondsRecorded() const      { return wavRecorder.getSecondsRecorded(); }
     float getCropPosition() const          { return cropPosition; }
+    float getCropY() const                 { return cropY; }
+    float getZoom() const                  { return flZoom; }
     float getExportProgress() const        { return exportProgress; }
     const juce::String& getStatusText() const { return statusText; }
     bool hasLastExport() const             { return lastExport.existsAsFile(); }
@@ -97,6 +100,8 @@ private:
     bool editorOpen = false;
     bool videoActive = false;
     float cropPosition = 0.5f;
+    float cropY = 0.5f;
+    float flZoom = 1.0f;
     bool cameraEnabled = true;
     int backgroundId = bgOriginal;
     juce::File backgroundImage;

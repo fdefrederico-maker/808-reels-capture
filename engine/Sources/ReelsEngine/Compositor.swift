@@ -24,6 +24,10 @@ final class Compositor {
 
     /// Posição horizontal do recorte do FL: 0 = esquerda, 1 = direita.
     var cropX: CGFloat = 0.5
+    /// Posição vertical do recorte do FL: 0 = topo da janela, 1 = fundo.
+    var cropY: CGFloat = 0.5
+    /// Zoom da janela do FL (1 = altura toda da janela visível).
+    var flZoom: CGFloat = 1.0
     var cameraEnabled = true
     var mirrorCamera = true
     var backgroundMode: BackgroundMode = .original
@@ -57,7 +61,9 @@ final class Compositor {
         var result = CIImage(color: CIColor(red: 0.04, green: 0.04, blue: 0.05)).cropped(to: outputRect)
 
         if let fl {
-            let image = Compositor.fill(CIImage(cvPixelBuffer: fl), into: flRect, alignX: cropX)
+            // alignY do Core Image conta a partir de baixo, por isso inverte-se
+            let image = Compositor.fill(CIImage(cvPixelBuffer: fl), into: flRect,
+                                        alignX: cropX, alignY: 1 - cropY, zoom: flZoom)
             result = image.composited(over: result)
         }
 
@@ -113,11 +119,12 @@ final class Compositor {
     }
 
     /// Escala a imagem para PREENCHER `rect` (cortando o que sobra) e posiciona-a.
-    static func fill(_ image: CIImage, into rect: CGRect, alignX: CGFloat, alignY: CGFloat = 0.5, mirror: Bool = false) -> CIImage {
+    static func fill(_ image: CIImage, into rect: CGRect, alignX: CGFloat, alignY: CGFloat = 0.5,
+                     zoom: CGFloat = 1, mirror: Bool = false) -> CIImage {
         let e = image.extent
         guard e.width > 0, e.height > 0 else { return CIImage.empty() }
 
-        let scale = max(rect.width / e.width, rect.height / e.height)
+        let scale = max(rect.width / e.width, rect.height / e.height) * min(max(zoom, 1), 8)
         let excessX = e.width * scale - rect.width
         let excessY = e.height * scale - rect.height
 

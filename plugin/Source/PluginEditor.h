@@ -27,13 +27,22 @@ private:
     reels::ChannelMeter meterL { "L" }, meterR { "R" };
 
     juce::TextButton recordButton, stopButton, exportButton;
-    juce::Slider cropSlider;
+    juce::Slider cropSlider, zoomSlider, cropYSlider;
     juce::ToggleButton cameraToggle;
     juce::ComboBox backgroundBox;
     juce::TextButton imageButton;
     std::unique_ptr<juce::FileChooser> fileChooser;
 
     void chooseBackgroundImage();
+    void framingChanged();
+
+    // Arrastar / roda do rato na pré-visualização
+    void mouseDown (const juce::MouseEvent&) override;
+    void mouseDrag (const juce::MouseEvent&) override;
+    void mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
+    void mouseMagnify (const juce::MouseEvent&, float scaleFactor) override;
+    bool draggingPreview = false;
+    float dragStartX = 0.5f, dragStartY = 0.5f;
     void syncVideoControls();
 
     float momentaryLufs = -100.0f, shortTermLufs = -100.0f;

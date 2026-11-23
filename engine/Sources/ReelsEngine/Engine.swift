@@ -214,6 +214,12 @@ final class Engine {
             if let x = (object["x"] as? NSNumber)?.doubleValue {
                 compositor.cropX = CGFloat(x)
             }
+            if let y = (object["y"] as? NSNumber)?.doubleValue {
+                compositor.cropY = CGFloat(y)
+            }
+            if let zoom = (object["zoom"] as? NSNumber)?.doubleValue {
+                compositor.flZoom = CGFloat(zoom)
+            }
 
         case "camera":
             if let enabled = object["enabled"] as? Bool {

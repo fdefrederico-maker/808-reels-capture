@@ -21,6 +21,7 @@ enum SelfTest {
 
         testCompositor()
         testCameraLayout()
+        testZoom()
         testRecordAndExport(dir: dir)
 
         print(failures == 0 ? "\nAUTOTESTE: TUDO OK" : "\nAUTOTESTE: \(failures) FALHA(S)")
@@ -65,6 +66,55 @@ enum SelfTest {
                 check(false, "pré-visualização JPEG não gerada")
             }
         }
+    }
+
+    // MARK: - Zoom e posição vertical do FL
+
+    private static func testZoom() {
+        // Janela 3000x1920: faixa branca nos 200 px de cima, faixa preta nos 200 de baixo,
+        // e um quadrado amarelo no centro (1400..1600 x 860..1060)
+        let source = makeBuffer(width: 3000, height: 1920) { x, y in
+            if y < 200 { return (255, 255, 255) }
+            if y >= 1720 { return (0, 0, 0) }
+            if (1400 ..< 1600).contains(x) && (860 ..< 1060).contains(y) { return (255, 255, 0) }
+            return (255, 0, 0)
+        }
+        let compositor = Compositor()
+        compositor.cameraEnabled = false
+
+        func render() -> CVPixelBuffer {
+            let out = makeBuffer(width: 1080, height: 1920) { _, _ in (0, 0, 0) }
+            compositor.render(compositor.compose(fl: source, camera: nil), to: out)
+            return out
+        }
+
+        // Zoom 1: a janela toda na altura (topo branco, fundo preto)
+        compositor.flZoom = 1; compositor.cropX = 0.5; compositor.cropY = 0.5
+        var out = render()
+        var p = readPixel(out, x: 540, y: 50)
+        check(p.r > 200 && p.g > 200 && p.b > 200, "zoom 1x: topo da janela visível")
+        p = readPixel(out, x: 540, y: 1880)
+        check(p.r < 50 && p.g < 50 && p.b < 50, "zoom 1x: fundo da janela visível")
+
+        // Zoom 4 no centro: o quadrado amarelo (200 px na janela) passa a ~800 px
+        compositor.flZoom = 4
+        out = render()
+        p = readPixel(out, x: 540, y: 960)
+        check(p.r > 200 && p.g > 200 && p.b < 60, "zoom 4x centro: quadrado amarelo no meio")
+        p = readPixel(out, x: 540, y: 960 - 350)
+        check(p.r > 200 && p.g > 200 && p.b < 60, "zoom 4x: quadrado ampliado (~800 px)")
+
+        // Zoom 3, posição vertical em cima: vê-se a faixa branca
+        compositor.flZoom = 3; compositor.cropY = 0
+        out = render()
+        p = readPixel(out, x: 540, y: 100)
+        check(p.r > 200 && p.g > 200 && p.b > 200, "zoom 3x + topo: faixa branca visível")
+
+        // Zoom 3, posição vertical em baixo: vê-se a faixa preta
+        compositor.cropY = 1
+        out = render()
+        p = readPixel(out, x: 540, y: 1850)
+        check(p.r < 50 && p.g < 50 && p.b < 50, "zoom 3x + fundo: faixa preta visível")
     }
 
     // MARK: - Câmara no topo + troca de fundo

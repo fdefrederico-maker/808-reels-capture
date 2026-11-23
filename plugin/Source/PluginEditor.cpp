@@ -55,8 +55,30 @@ ReelsCaptureEditor::ReelsCaptureEditor (ReelsCaptureProcessor& p)
     cropSlider.setColour (juce::Slider::backgroundColourId, colours::panelEdge);
     cropSlider.setColour (juce::Slider::thumbColourId, colours::accent);
     cropSlider.setTooltip (pt ("Que parte da janela do FL aparece no vídeo vertical (duplo clique = centro)"));
-    cropSlider.onValueChange = [this] { processor.setCropPosition ((float) cropSlider.getValue()); };
+    cropSlider.onValueChange = [this] { framingChanged(); };
     addAndMakeVisible (cropSlider);
+
+    for (auto* s : { &zoomSlider, &cropYSlider })
+    {
+        s->setSliderStyle (juce::Slider::LinearHorizontal);
+        s->setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
+        s->setColour (juce::Slider::trackColourId, colours::panelEdge);
+        s->setColour (juce::Slider::backgroundColourId, colours::panelEdge);
+        s->setColour (juce::Slider::thumbColourId, colours::accent);
+        s->onValueChange = [this] { framingChanged(); };
+        addAndMakeVisible (*s);
+    }
+
+    zoomSlider.setRange (1.0, 4.0, 0.0);
+    zoomSlider.setSkewFactorFromMidPoint (2.0);
+    zoomSlider.setValue (processor.getZoom(), juce::dontSendNotification);
+    zoomSlider.setDoubleClickReturnValue (true, 1.0);
+    zoomSlider.setTooltip (pt ("Zoom da janela do FL: 1x mostra a janela toda na altura (duplo clique = 1x)"));
+
+    cropYSlider.setRange (0.0, 1.0, 0.0);
+    cropYSlider.setValue (processor.getCropY(), juce::dontSendNotification);
+    cropYSlider.setDoubleClickReturnValue (true, 0.5);
+    cropYSlider.setTooltip (pt ("Que parte da janela do FL aparece: cima <-> baixo (só se nota com zoom)"));
 
     // Câmara e fundo
     cameraToggle.setButtonText (pt ("Câmara no topo"));
@@ -109,6 +131,53 @@ ReelsCaptureEditor::~ReelsCaptureEditor()
 {
     stopTimer();
     processor.editorVisibilityChanged (false);
+}
+
+void ReelsCaptureEditor::framingChanged()
+{
+    processor.setFraming ((float) cropSlider.getValue(), (float) cropYSlider.getValue(), (float) zoomSlider.getValue());
+    repaint (videoArea);
+}
+
+void ReelsCaptureEditor::mouseDown (const juce::MouseEvent& e)
+{
+    draggingPreview = getPreviewFrame().contains (e.position);
+    dragStartX = (float) cropSlider.getValue();
+    dragStartY = (float) cropYSlider.getValue();
+}
+
+void ReelsCaptureEditor::mouseDrag (const juce::MouseEvent& e)
+{
+    if (! draggingPreview)
+        return;
+
+    // Arrastar a imagem: mover para a direita mostra mais do lado esquerdo do FL
+    const auto frame = getPreviewFrame();
+    const float zoom = (float) zoomSlider.getValue();
+    const float dx = (float) e.getDistanceFromDragStartX() / frame.getWidth();
+    const float dy = (float) e.getDistanceFromDragStartY() / frame.getHeight();
+
+    cropSlider.setValue (juce::jlimit (0.0, 1.0, (double) (dragStartX - dx / (1.0f + zoom))), juce::dontSendNotification);
+    cropYSlider.setValue (juce::jlimit (0.0, 1.0, (double) (dragStartY - dy * 2.0f / zoom)), juce::dontSendNotification);
+    framingChanged();
+}
+
+void ReelsCaptureEditor::mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel)
+{
+    if (! getPreviewFrame().contains (e.position))
+        return;
+
+    zoomSlider.setValue (zoomSlider.getValue() * (1.0 + wheel.deltaY * 0.5), juce::dontSendNotification);
+    framingChanged();
+}
+
+void ReelsCaptureEditor::mouseMagnify (const juce::MouseEvent& e, float scaleFactor)
+{
+    if (! getPreviewFrame().contains (e.position))
+        return;
+
+    zoomSlider.setValue (zoomSlider.getValue() * scaleFactor, juce::dontSendNotification);
+    framingChanged();
 }
 
 void ReelsCaptureEditor::syncVideoControls()
@@ -306,6 +375,14 @@ void ReelsCaptureEditor::paint (juce::Graphics& g)
         g.drawText ("Fundo", backgroundBox.getBounds().withX (videoArea.getX()).withWidth (50),
                     juce::Justification::centredLeft);
 
+        g.drawText ("Zoom FL", zoomSlider.getBounds().withX (videoArea.getX()).withWidth (60),
+                    juce::Justification::centredLeft);
+        g.drawText (juce::String (zoomSlider.getValue(), 1) + "x",
+                    zoomSlider.getBounds().withX (zoomSlider.getRight() + 4).withWidth (40),
+                    juce::Justification::centredLeft);
+        g.drawText (pt ("Cima/baixo"), cropYSlider.getBounds().withX (videoArea.getX()).withWidth (64),
+                    juce::Justification::centredLeft);
+
         if (processor.getBackgroundId() == ReelsCaptureProcessor::bgImage)
         {
             g.drawFittedText (processor.getBackgroundImage().getFileName(),
@@ -347,7 +424,7 @@ void ReelsCaptureEditor::paint (juce::Graphics& g)
 
         g.setColour (colours::textDim);
         g.setFont (juce::FontOptions (10.0f));
-        g.drawText ("Recorte: esquerda  <->  direita", cropLabelArea, juce::Justification::centred);
+        g.drawText (pt ("Arraste = mover  \xc2\xb7  roda = zoom"), cropLabelArea, juce::Justification::centred);
     }
 
     // Linha de estado
@@ -403,7 +480,7 @@ void ReelsCaptureEditor::resized()
     {
         auto v = loudnessPanel.reduced (12, 8);
         v.removeFromTop (20 + 54 + 6 + 54 + 22);
-        videoArea = v.removeFromTop (110);
+        videoArea = v.removeFromTop (190);
 
         auto rows = videoArea;
         rows.removeFromTop (20);
@@ -414,6 +491,18 @@ void ReelsCaptureEditor::resized()
         imageButton.setBounds (bgRow.removeFromRight (84));
         bgRow.removeFromRight (6);
         backgroundBox.setBounds (bgRow);
+
+        rows.removeFromTop (24);   // nome da imagem de fundo
+        auto zoomRow = rows.removeFromTop (24);
+        zoomRow.removeFromLeft (66);
+        zoomRow.removeFromRight (44);
+        zoomSlider.setBounds (zoomRow);
+
+        rows.removeFromTop (6);
+        auto yRow = rows.removeFromTop (24);
+        yRow.removeFromLeft (66);
+        yRow.removeFromRight (44);
+        cropYSlider.setBounds (yRow);
     }
 
     // Medidores dentro do painel MASTER

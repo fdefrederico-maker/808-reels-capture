@@ -193,9 +193,17 @@ void ReelsCaptureProcessor::setCropPosition (float x)
     sendCrop();
 }
 
+void ReelsCaptureProcessor::setFraming (float x, float y, float zoom)
+{
+    cropPosition = juce::jlimit (0.0f, 1.0f, x);
+    cropY = juce::jlimit (0.0f, 1.0f, y);
+    flZoom = juce::jlimit (1.0f, 4.0f, zoom);
+    sendCrop();
+}
+
 void ReelsCaptureProcessor::sendCrop()
 {
-    engineLink.sendCommand (makeObject ({ { "cmd", "crop" }, { "x", cropPosition } }));
+    engineLink.sendCommand (makeObject ({ { "cmd", "crop" }, { "x", cropPosition }, { "y", cropY }, { "zoom", flZoom } }));
 }
 
 void ReelsCaptureProcessor::setCameraEnabled (bool shouldBeOn)
@@ -303,6 +311,8 @@ void ReelsCaptureProcessor::getStateInformation (juce::MemoryBlock& dest)
 {
     juce::XmlElement xml ("ReelsCapture");
     xml.setAttribute ("cropX", (double) cropPosition);
+    xml.setAttribute ("cropY", (double) cropY);
+    xml.setAttribute ("zoom", (double) flZoom);
     xml.setAttribute ("camera", cameraEnabled);
     xml.setAttribute ("background", backgroundId);
     xml.setAttribute ("backgroundImage", backgroundImage.getFullPathName());
@@ -315,6 +325,8 @@ void ReelsCaptureProcessor::setStateInformation (const void* data, int size)
         if (xml->hasTagName ("ReelsCapture"))
         {
             cropPosition = (float) xml->getDoubleAttribute ("cropX", 0.5);
+            cropY = (float) xml->getDoubleAttribute ("cropY", 0.5);
+            flZoom = juce::jlimit (1.0f, 4.0f, (float) xml->getDoubleAttribute ("zoom", 1.0));
             cameraEnabled = xml->getBoolAttribute ("camera", true);
             backgroundId = xml->getIntAttribute ("background", bgOriginal);
             const auto path = xml->getStringAttribute ("backgroundImage");
