@@ -2,6 +2,8 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "LoudnessMeter.h"
+#include "WavRecorder.h"
+#include "EngineLink.h"
 
 // Processador do plugin. Nesta Fase 1 deixa o áudio passar sem alterações
 // e apenas mede os níveis do master para mostrar no ecrã.
@@ -32,8 +34,8 @@ public:
     const juce::String getProgramName (int) override { return {}; }
     void changeProgramName (int, const juce::String&) override {}
 
-    void getStateInformation (juce::MemoryBlock&) override {}
-    void setStateInformation (const void*, int) override {}
+    void getStateInformation (juce::MemoryBlock&) override;
+    void setStateInformation (const void*, int) override;
 
     //==============================================================================
     // Valores lidos pelo editor (ecrã). Todos em amplitude linear (0..1+).
@@ -53,7 +55,43 @@ public:
 
     LoudnessMeter loudness;
 
+    //==============================================================================
+    // Gravação (chamar apenas da thread de mensagens / interface)
+    enum class SessionState { idle, recording, exporting };
+
+    void editorVisibilityChanged (bool editorIsOpen);
+    void startRecording();
+    void stopRecording();
+    void revealLastExport();
+    void setCropPosition (float x);
+
+    SessionState getSessionState() const   { return sessionState; }
+    double getSecondsRecorded() const      { return wavRecorder.getSecondsRecorded(); }
+    float getCropPosition() const          { return cropPosition; }
+    float getExportProgress() const        { return exportProgress; }
+    const juce::String& getStatusText() const { return statusText; }
+    bool hasLastExport() const             { return lastExport.existsAsFile(); }
+
+    EngineLink& getEngineLink()            { return engineLink; }
+
+    static juce::File getOutputFolder();
+
 private:
+    void handleEngineEvent (const juce::var& ev);
+    void sendCrop();
+
+    WavRecorder wavRecorder;
+    EngineLink engineLink;
+
+    SessionState sessionState = SessionState::idle;
+    bool editorOpen = false;
+    bool videoActive = false;
+    float cropPosition = 0.5f;
+    float exportProgress = 0.0f;
+    juce::String statusText;
+    juce::String currentTakeName;
+    juce::File lastExport;
+
     std::array<ChannelLevels, maxMeterChannels> levels;
     std::array<double, maxMeterChannels> rmsMeanSquare {};
     std::atomic<int> numMeterChannels { 2 };

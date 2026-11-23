@@ -1,4 +1,4 @@
-name: Compilar plugin (macOS)
+name: Compilar (macOS)
 
 on:
   push:
@@ -16,15 +16,30 @@ jobs:
       - name: Obter o código
         uses: actions/checkout@v4
 
-      - name: Configurar (CMake)
+      - name: Definir a versão
+        run: echo "VERSION=0.2.${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+
+      - name: Versões das ferramentas
+        run: |
+          xcodebuild -version
+          swift --version
+
+      # ---------------------------------------------------------------- Plugin
+      - name: Plugin - configurar (CMake)
         run: |
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
 
-      - name: Compilar
+      - name: Plugin - compilar
         run: cmake --build build --config Release -j "$(sysctl -n hw.ncpu)"
 
+      # ----------------------------------------------------------------- Motor
+      - name: Motor - compilar (Swift)
+        working-directory: engine
+        run: swift build -c release --arch arm64 --arch x86_64
+
+      # ----------------------------------------------------------------- Pacote
       - name: Assinar (ad-hoc) e preparar pacote
         run: |
           set -euo pipefail
@@ -32,32 +47,56 @@ jobs:
           PKG="dist/808-Reels-Capture"
           mkdir -p "$PKG"
 
+          # Plugin
           cp -R "$ART/VST3/808 Reels Capture.vst3"      "$PKG/"
           cp -R "$ART/AU/808 Reels Capture.component"   "$PKG/"
 
-          for b in "$PKG/808 Reels Capture.vst3" "$PKG/808 Reels Capture.component"; do
+          # Motor (.app montada à mão: executável + Info.plist)
+          BIN_DIR="$(cd engine && swift build -c release --arch arm64 --arch x86_64 --show-bin-path)"
+          APP="$PKG/808 Reels Engine.app"
+          mkdir -p "$APP/Contents/MacOS"
+          cp "$BIN_DIR/ReelsEngine" "$APP/Contents/MacOS/ReelsEngine"
+          cp engine/Info.plist "$APP/Contents/Info.plist"
+          plutil -replace CFBundleShortVersionString -string "$VERSION" "$APP/Contents/Info.plist"
+          plutil -replace CFBundleVersion -string "$GITHUB_RUN_NUMBER" "$APP/Contents/Info.plist"
+          plutil -lint "$APP/Contents/Info.plist"
+
+          for b in "$PKG/808 Reels Capture.vst3" "$PKG/808 Reels Capture.component" "$APP"; do
             codesign --force --deep --sign - --timestamp=none "$b"
             codesign --verify --deep --strict --verbose=2 "$b"
           done
 
           lipo -info "$PKG/808 Reels Capture.vst3/Contents/MacOS/808 Reels Capture"
+          lipo -info "$APP/Contents/MacOS/ReelsEngine"
 
           cp packaging/instalar.sh packaging/LEIA-ME.txt "$PKG/"
           chmod +x "$PKG/instalar.sh"
 
-          VERSION="0.1.${GITHUB_RUN_NUMBER}"
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           (cd dist && ditto -c -k --sequesterRsrc --keepParent "808-Reels-Capture" "808-Reels-Capture-v${VERSION}.zip")
           ls -la dist
 
       - name: Validar o Audio Unit (auval)
-        continue-on-error: true
         run: |
           mkdir -p ~/Library/Audio/Plug-Ins/Components
           cp -R "dist/808-Reels-Capture/808 Reels Capture.component" ~/Library/Audio/Plug-Ins/Components/
           killall -9 AudioComponentRegistrar 2>/dev/null || true
           sleep 3
           auval -v aufx R8cp Rels
+
+      - name: Autoteste do motor (recorte, pré-visualização, MP4, sincronização)
+        run: |
+          "dist/808-Reels-Capture/808 Reels Engine.app/Contents/MacOS/ReelsEngine" --selftest
+
+      - name: Testar o arranque do motor
+        run: |
+          set -euo pipefail
+          APP="dist/808-Reels-Capture/808 Reels Engine.app"
+          "$APP/Contents/MacOS/ReelsEngine" &
+          PID=$!
+          sleep 4
+          # O motor deve estar a escutar em 127.0.0.1:48808
+          if lsof -nP -iTCP:48808 -sTCP:LISTEN; then echo "Motor a escutar: OK"; else echo "Motor NÃO está a escutar"; kill $PID || true; exit 1; fi
+          kill $PID || true
 
       - name: Guardar o zip como artefacto da compilação
         uses: actions/upload-artifact@v4

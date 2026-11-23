@@ -25,6 +25,8 @@ juce_add_plugin(ReelsCapture
 target_sources(ReelsCapture PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
+    Source/WavRecorder.cpp
+    Source/EngineLink.cpp
 )
 
 target_compile_definitions(ReelsCapture PUBLIC

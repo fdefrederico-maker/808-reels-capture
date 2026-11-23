@@ -1,20 +1,34 @@
-808 Reels Capture — plugin (VST3 + AU)
-======================================
+808 Reels Capture — plugin (VST3 + AU) + motor de vídeo
+=======================================================
 
-Instalação (só é preciso fazer uma vez por versão):
+INSTALAR (repetir a cada versão nova)
 
-1. Abra a app "Terminal" (Cmd + Espaço, escreva Terminal, Enter).
-2. Cole esta linha e carregue em Enter:
+1. Feche o FL Studio.
+2. Abra a app "Terminal" (Cmd + Espaço, escreva Terminal, Enter).
+3. Cole esta linha e carregue em Enter:
 
    bash ~/Downloads/808-Reels-Capture/instalar.sh
 
    (Se a pasta não estiver em Transferências/Downloads, escreva "bash " com
    um espaço e arraste o ficheiro instalar.sh para a janela do Terminal.)
 
-3. No FL Studio: Options > Manage plugins > Find more plugins.
-4. No Mixer, selecione a pista Master, clique num slot vazio e escolha
-   "808 Reels Capture".
+PRIMEIRA VEZ (e depois de cada atualização): AUTORIZAR A GRAVAÇÃO DE ECRÃ
 
-Instalação manual (alternativa):
-  - "808 Reels Capture.vst3"      -> ~/Library/Audio/Plug-Ins/VST3/
-  - "808 Reels Capture.component" -> ~/Library/Audio/Plug-Ins/Components/
+1. Abra o FL Studio e o plugin "808 Reels Capture" no Master.
+2. O macOS pergunta se "808 Reels Engine" pode gravar o ecrã: clique em
+   "Abrir Definições do Sistema" e ative "808 Reels Engine".
+   (Caminho: Definições do Sistema > Privacidade e Segurança >
+    Gravação de ecrã e áudio do sistema)
+3. Feche a janela do plugin, espere 3 segundos e volte a abri-la.
+   A pré-visualização vertical deve aparecer.
+
+ONDE FICAM OS FICHEIROS
+
+  ~/Movies/808 Reels Capture/            -> os MP4 finais (Filmes)
+  ~/Movies/808 Reels Capture/Brutos/     -> WAV e vídeo sem som de cada take
+
+O QUE É INSTALADO
+
+  ~/Library/Audio/Plug-Ins/VST3/808 Reels Capture.vst3
+  ~/Library/Audio/Plug-Ins/Components/808 Reels Capture.component
+  ~/Applications/808 Reels Engine.app   (abre sozinho; não aparece no Dock)
