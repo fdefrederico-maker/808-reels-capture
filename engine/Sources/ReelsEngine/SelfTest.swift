@@ -20,6 +20,7 @@ enum SelfTest {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
 
         testCompositor()
+        testCameraLayout()
         testRecordAndExport(dir: dir)
 
         print(failures == 0 ? "\nAUTOTESTE: TUDO OK" : "\nAUTOTESTE: \(failures) FALHA(S)")
@@ -38,9 +39,10 @@ enum SelfTest {
         }
 
         let compositor = Compositor()
+        compositor.cameraEnabled = false   // FL em ecrã inteiro
         for (cropX, expected) in [(0.0, "vermelho"), (0.5, "verde"), (1.0, "azul")] {
             compositor.cropX = CGFloat(cropX)
-            let image = compositor.compose(source)
+            let image = compositor.compose(fl: source, camera: nil)
             let output = makeBuffer(width: 1080, height: 1920) { _, _ in (0, 0, 0) }
             compositor.render(image, to: output)
 
@@ -63,6 +65,58 @@ enum SelfTest {
                 check(false, "pré-visualização JPEG não gerada")
             }
         }
+    }
+
+    // MARK: - Câmara no topo + troca de fundo
+
+    private static func testCameraLayout() {
+        // FL vermelho, câmara amarela; "pessoa" = metade esquerda da imagem da câmara
+        let fl = makeBuffer(width: 3000, height: 1920) { _, _ in (255, 0, 0) }
+        let cam = makeBuffer(width: 1280, height: 720) { _, _ in (255, 255, 0) }
+        let mask = makeMask(width: 512, height: 288) { x, _ in x < 256 ? 255 : 0 }
+
+        let compositor = Compositor()
+        compositor.cameraEnabled = true
+        compositor.mirrorCamera = false
+
+        func render(_ frame: CameraFrame?) -> CVPixelBuffer {
+            let out = makeBuffer(width: 1080, height: 1920) { _, _ in (0, 0, 0) }
+            compositor.render(compositor.compose(fl: fl, camera: frame), to: out)
+            return out
+        }
+
+        // Sala original
+        compositor.backgroundMode = .original
+        var out = render(CameraFrame(image: cam, mask: mask))
+        var p = readPixel(out, x: 540, y: 300)
+        check(p.r > 200 && p.g > 200 && p.b < 60, "câmara na faixa de cima (\(p.r),\(p.g),\(p.b))")
+        p = readPixel(out, x: 540, y: 1300)
+        check(colourName(p) == "vermelho", "FL na parte de baixo: \(colourName(p))")
+        p = readPixel(out, x: 540, y: 590)
+        check(p.r > 200 && p.g > 200, "câmara ocupa até ~600 px")
+        p = readPixel(out, x: 540, y: 610)
+        check(colourName(p) == "vermelho", "FL começa logo abaixo da câmara")
+
+        // Fundo trocado por cor azul: lado esquerdo (pessoa) amarelo, lado direito azul
+        compositor.backgroundMode = .color
+        compositor.backgroundColor = CIColor(red: 0, green: 0, blue: 1)
+        out = render(CameraFrame(image: cam, mask: mask))
+        p = readPixel(out, x: 200, y: 300)
+        check(p.r > 200 && p.g > 200 && p.b < 60, "fundo trocado: pessoa mantém-se (\(p.r),\(p.g),\(p.b))")
+        p = readPixel(out, x: 880, y: 300)
+        check(colourName(p) == "azul", "fundo trocado: sala substituída por azul (\(colourName(p)))")
+
+        // Espelho: com a câmara espelhada, a pessoa passa para o lado direito
+        compositor.mirrorCamera = true
+        out = render(CameraFrame(image: cam, mask: mask))
+        p = readPixel(out, x: 880, y: 300)
+        check(p.r > 200 && p.g > 200 && p.b < 60, "câmara espelhada: pessoa à direita")
+
+        // Desfocado e sem câmara não podem rebentar
+        compositor.backgroundMode = .blur
+        _ = render(CameraFrame(image: cam, mask: mask))
+        _ = render(nil)
+        check(true, "fundo desfocado e câmara em falta")
     }
 
     // MARK: - Gravação + exportação + sincronização
@@ -231,6 +285,19 @@ enum SelfTest {
                 base[o] = b; base[o + 1] = g; base[o + 2] = r; base[o + 3] = 255
             }
         }
+        CVPixelBufferUnlockBaseAddress(pb, [])
+        return pb
+    }
+
+    private static func makeMask(width: Int, height: Int, fill: (Int, Int) -> UInt8) -> CVPixelBuffer {
+        var buffer: CVPixelBuffer?
+        let attrs: [String: Any] = [kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any]()]
+        CVPixelBufferCreate(kCFAllocatorDefault, width, height, kCVPixelFormatType_OneComponent8, attrs as CFDictionary, &buffer)
+        let pb = buffer!
+        CVPixelBufferLockBaseAddress(pb, [])
+        let base = CVPixelBufferGetBaseAddress(pb)!.assumingMemoryBound(to: UInt8.self)
+        let bpr = CVPixelBufferGetBytesPerRow(pb)
+        for y in 0 ..< height { for x in 0 ..< width { base[y * bpr + x] = fill(x, y) } }
         CVPixelBufferUnlockBaseAddress(pb, [])
         return pb
     }

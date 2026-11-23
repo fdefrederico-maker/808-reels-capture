@@ -58,6 +58,46 @@ ReelsCaptureEditor::ReelsCaptureEditor (ReelsCaptureProcessor& p)
     cropSlider.onValueChange = [this] { processor.setCropPosition ((float) cropSlider.getValue()); };
     addAndMakeVisible (cropSlider);
 
+    // Câmara e fundo
+    cameraToggle.setButtonText (pt ("Câmara no topo"));
+    cameraToggle.setColour (juce::ToggleButton::textColourId, colours::text);
+    cameraToggle.setColour (juce::ToggleButton::tickColourId, colours::accent);
+    cameraToggle.onClick = [this] { processor.setCameraEnabled (cameraToggle.getToggleState()); syncVideoControls(); };
+    addAndMakeVisible (cameraToggle);
+
+    using P = ReelsCaptureProcessor;
+    backgroundBox.addItem ("Sala original",  P::bgOriginal);
+    backgroundBox.addItem ("Sala desfocada", P::bgBlur);
+    backgroundBox.addItem ("Imagem...",      P::bgImage);
+    backgroundBox.addSeparator();
+    backgroundBox.addItem ("Preto",          P::bgBlack);
+    backgroundBox.addItem ("Branco",         P::bgWhite);
+    backgroundBox.addItem ("Cinzento",       P::bgGrey);
+    backgroundBox.addItem ("Verde suave",    P::bgGreen);
+    backgroundBox.setColour (juce::ComboBox::backgroundColourId, colours::background);
+    backgroundBox.setColour (juce::ComboBox::outlineColourId, colours::panelEdge);
+    backgroundBox.setColour (juce::ComboBox::textColourId, colours::text);
+    backgroundBox.setTooltip (pt ("O que aparece atrás de si na câmara"));
+    backgroundBox.onChange = [this]
+    {
+        const int id = backgroundBox.getSelectedId();
+        if (id == ReelsCaptureProcessor::bgImage && ! processor.getBackgroundImage().existsAsFile())
+            chooseBackgroundImage();
+        else
+            processor.setBackground (id);
+        syncVideoControls();
+    };
+    addAndMakeVisible (backgroundBox);
+
+    imageButton.setButtonText (pt ("Imagem..."));
+    imageButton.setTooltip (pt ("Escolher a imagem de fundo (JPG, PNG, HEIC)"));
+    imageButton.setColour (juce::TextButton::buttonColourId, colours::panel);
+    imageButton.setColour (juce::TextButton::textColourOffId, colours::text);
+    imageButton.onClick = [this] { chooseBackgroundImage(); };
+    addAndMakeVisible (imageButton);
+
+    syncVideoControls();
+
     setSize (editorWidth, editorHeight);
 
     processor.editorVisibilityChanged (true);
@@ -69,6 +109,38 @@ ReelsCaptureEditor::~ReelsCaptureEditor()
 {
     stopTimer();
     processor.editorVisibilityChanged (false);
+}
+
+void ReelsCaptureEditor::syncVideoControls()
+{
+    cameraToggle.setToggleState (processor.isCameraEnabled(), juce::dontSendNotification);
+    backgroundBox.setSelectedId (processor.getBackgroundId(), juce::dontSendNotification);
+    backgroundBox.setEnabled (processor.isCameraEnabled());
+    imageButton.setEnabled (processor.isCameraEnabled());
+}
+
+void ReelsCaptureEditor::chooseBackgroundImage()
+{
+    auto start = processor.getBackgroundImage();
+    if (! start.existsAsFile())
+        start = juce::File::getSpecialLocation (juce::File::userPicturesDirectory);
+
+    fileChooser = std::make_unique<juce::FileChooser> (pt ("Escolha a imagem de fundo"), start,
+                                                       "*.jpg;*.jpeg;*.png;*.heic;*.tif;*.tiff");
+
+    juce::Component::SafePointer<ReelsCaptureEditor> safeThis (this);
+    fileChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+                              [safeThis] (const juce::FileChooser& chooser)
+    {
+        if (safeThis == nullptr)
+            return;
+
+        const auto file = chooser.getResult();
+        if (file.existsAsFile())
+            safeThis->processor.setBackgroundImage (file);
+
+        safeThis->syncVideoControls();
+    });
 }
 
 void ReelsCaptureEditor::updateButtons()
@@ -221,6 +293,27 @@ void ReelsCaptureEditor::paint (juce::Graphics& g)
                           area.removeFromBottom (32), juce::Justification::bottomLeft, 2);
     }
 
+    // Secção VÍDEO
+    {
+        g.setColour (colours::panelEdge);
+        g.fillRect (videoArea.getX(), videoArea.getY() - 10, videoArea.getWidth(), 1);
+
+        g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
+        g.setColour (colours::textDim);
+        g.drawText (pt ("VÍDEO"), videoArea.withHeight (14), juce::Justification::centredLeft);
+
+        g.setFont (juce::FontOptions (11.0f));
+        g.drawText ("Fundo", backgroundBox.getBounds().withX (videoArea.getX()).withWidth (50),
+                    juce::Justification::centredLeft);
+
+        if (processor.getBackgroundId() == ReelsCaptureProcessor::bgImage)
+        {
+            g.drawFittedText (processor.getBackgroundImage().getFileName(),
+                              backgroundBox.getBounds().translated (0, 30).withHeight (16),
+                              juce::Justification::centredLeft, 1);
+        }
+    }
+
     // Pré-visualização 9:16
     {
         const auto frame = getPreviewFrame();
@@ -305,6 +398,23 @@ void ReelsCaptureEditor::resized()
     meterPanel = area.removeFromLeft (170);
     area.removeFromLeft (12);
     loudnessPanel = area;
+
+    // Secção VÍDEO (dentro do painel do meio, abaixo dos LUFS)
+    {
+        auto v = loudnessPanel.reduced (12, 8);
+        v.removeFromTop (20 + 54 + 6 + 54 + 22);
+        videoArea = v.removeFromTop (110);
+
+        auto rows = videoArea;
+        rows.removeFromTop (20);
+        cameraToggle.setBounds (rows.removeFromTop (26));
+        rows.removeFromTop (6);
+        auto bgRow = rows.removeFromTop (26);
+        bgRow.removeFromLeft (50);
+        imageButton.setBounds (bgRow.removeFromRight (84));
+        bgRow.removeFromRight (6);
+        backgroundBox.setBounds (bgRow);
+    }
 
     // Medidores dentro do painel MASTER
     auto m = meterPanel.reduced (12, 8);

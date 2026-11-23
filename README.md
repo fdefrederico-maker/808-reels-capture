@@ -10,7 +10,8 @@ transformá-las em vídeos verticais 9:16 para Reels.
 | Plugin JUCE (VST3 + AU) | Feito | Vai no Master do FL. Medidores de pico/RMS e loudness (LUFS). |
 | Gravação WAV no plugin | Feito | Gravar / Parar; WAV 48 kHz / 24 bits com marca de tempo do relógio do sistema. |
 | Motor Swift (sem ícone no Dock) | Feito (ecrã) | Capta a janela do FL, pré-visualização 9:16 ao vivo no plugin, exporta MP4 1080x1920 30 fps H.264 + AAC. |
-| Câmara, fundo, título | Próxima fase | Câmara em círculo, fundo e título no vídeo. |
+| Câmara + fundo | Feito | Câmara numa faixa no topo (600 px), FL em baixo; troca da sala atrás da pessoa (desfocada, cor ou imagem) com Vision. |
+| Título | Próxima fase | Texto sobre o vídeo. |
 
 ## Como funciona a sincronização
 

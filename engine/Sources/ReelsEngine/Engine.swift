@@ -20,7 +20,9 @@ final class Engine {
     private let queue = DispatchQueue(label: "808reels.engine", qos: .userInteractive)
     private lazy var server = IPCServer(queue: queue)
     private lazy var capture = WindowCapture(queue: queue)
+    private let camera = CameraCapture()
     private let compositor = Compositor()
+    private var cameraRunning = false
 
     private var state: State = .idle
     private var recorder: VideoRecorder?
@@ -52,6 +54,7 @@ final class Engine {
             guard let self else { return }
             self.lastClientTime = Date()
             if count > 0 { self.capture.refresh() }
+            self.updateCamera()
         }
         server.onFatalError = { message in
             // Normalmente: já existe outro motor a correr nesta porta
@@ -91,7 +94,8 @@ final class Engine {
         var composed: CIImage?
         func image() -> CIImage {
             if let composed { return composed }
-            let img = compositor.compose(capture.latestFrame)
+            let img = compositor.compose(fl: capture.latestFrame,
+                                         camera: compositor.cameraEnabled ? camera.latestFrame : nil)
             composed = img
             return img
         }
@@ -119,7 +123,22 @@ final class Engine {
         }
     }
 
+    /// A câmara só fica ligada enquanto houver um plugin aberto (ou a gravar) e estiver ativa.
+    private func updateCamera() {
+        let wanted = compositor.cameraEnabled && (server.clientCount > 0 || state != .idle)
+        camera.segmentationEnabled = compositor.backgroundMode != .original
+        if wanted && !cameraRunning {
+            camera.start()
+            cameraRunning = true
+        } else if !wanted && cameraRunning {
+            camera.stop()
+            cameraRunning = false
+        }
+    }
+
     private func onSlowTick() {
+        updateCamera()
+
         if server.clientCount > 0 {
             lastClientTime = Date()
             capture.refresh()
@@ -135,6 +154,22 @@ final class Engine {
     }
 
     private func statusMessage() -> String {
+        let screen = screenStatusMessage()
+        guard compositor.cameraEnabled else { return screen }
+
+        switch camera.problem {
+        case .none:
+            return screen
+        case .noPermission:
+            return "Sem permissão da Câmara. Ative \"808 Reels Engine\" em Definições do Sistema > Privacidade e Segurança > Câmara. " + screen
+        case .noCamera:
+            return "Nenhuma câmara encontrada. " + screen
+        case .failed(let text):
+            return text + " " + screen
+        }
+    }
+
+    private func screenStatusMessage() -> String {
         switch capture.problem {
         case .noPermission:
             return "Sem permissão de Gravação de ecrã. Ative \"808 Reels Engine\" em Definições do Sistema > Privacidade e Segurança > Gravação de ecrã e áudio do sistema. Depois feche e volte a abrir esta janela."
@@ -180,6 +215,16 @@ final class Engine {
                 compositor.cropX = CGFloat(x)
             }
 
+        case "camera":
+            if let enabled = object["enabled"] as? Bool {
+                compositor.cameraEnabled = enabled
+                updateCamera()
+            }
+
+        case "background":
+            applyBackground(object)
+            updateCamera()
+
         case "start":
             startRecording(object)
 
@@ -199,6 +244,26 @@ final class Engine {
         default:
             break
         }
+    }
+
+    private func applyBackground(_ object: [String: Any]) {
+        guard let modeText = object["mode"] as? String, let mode = Compositor.BackgroundMode(rawValue: modeText) else { return }
+
+        if let rgb = object["color"] as? [NSNumber], rgb.count == 3 {
+            compositor.backgroundColor = CIColor(red: CGFloat(rgb[0].doubleValue),
+                                                 green: CGFloat(rgb[1].doubleValue),
+                                                 blue: CGFloat(rgb[2].doubleValue))
+        }
+
+        if mode == .image {
+            guard let path = object["path"] as? String, compositor.loadBackgroundImage(path: path) else {
+                sendError("Não foi possível abrir a imagem de fundo.")
+                compositor.backgroundMode = .blur
+                return
+            }
+        }
+
+        compositor.backgroundMode = mode
     }
 
     private func sendError(_ message: String) {

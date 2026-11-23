@@ -65,6 +65,15 @@ public:
     void revealLastExport();
     void setCropPosition (float x);
 
+    // Câmara e fundo (ids do menu "Fundo")
+    enum BackgroundId { bgOriginal = 1, bgBlur, bgImage, bgBlack, bgWhite, bgGrey, bgGreen };
+    void setCameraEnabled (bool shouldBeOn);
+    void setBackground (int backgroundId);
+    void setBackgroundImage (const juce::File& image);
+    bool isCameraEnabled() const           { return cameraEnabled; }
+    int getBackgroundId() const            { return backgroundId; }
+    juce::File getBackgroundImage() const  { return backgroundImage; }
+
     SessionState getSessionState() const   { return sessionState; }
     double getSecondsRecorded() const      { return wavRecorder.getSecondsRecorded(); }
     float getCropPosition() const          { return cropPosition; }
@@ -79,6 +88,7 @@ public:
 private:
     void handleEngineEvent (const juce::var& ev);
     void sendCrop();
+    void sendVideoSettings();
 
     WavRecorder wavRecorder;
     EngineLink engineLink;
@@ -87,6 +97,9 @@ private:
     bool editorOpen = false;
     bool videoActive = false;
     float cropPosition = 0.5f;
+    bool cameraEnabled = true;
+    int backgroundId = bgOriginal;
+    juce::File backgroundImage;
     float exportProgress = 0.0f;
     juce::String statusText;
     juce::String currentTakeName;

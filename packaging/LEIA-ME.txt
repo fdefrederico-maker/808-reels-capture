@@ -32,3 +32,5 @@ O QUE É INSTALADO
   ~/Library/Audio/Plug-Ins/VST3/808 Reels Capture.vst3
   ~/Library/Audio/Plug-Ins/Components/808 Reels Capture.component
   ~/Applications/808 Reels Engine.app   (abre sozinho; não aparece no Dock)
+
+Na primeira vez o macOS pede também acesso à Câmara: clique em Permitir.

@@ -198,13 +198,62 @@ void ReelsCaptureProcessor::sendCrop()
     engineLink.sendCommand (makeObject ({ { "cmd", "crop" }, { "x", cropPosition } }));
 }
 
+void ReelsCaptureProcessor::setCameraEnabled (bool shouldBeOn)
+{
+    cameraEnabled = shouldBeOn;
+    engineLink.sendCommand (makeObject ({ { "cmd", "camera" }, { "enabled", cameraEnabled } }));
+}
+
+void ReelsCaptureProcessor::setBackground (int newId)
+{
+    if (newId == bgImage && ! backgroundImage.existsAsFile())
+        return;   // primeiro é preciso escolher uma imagem
+
+    backgroundId = newId;
+
+    auto colour = [] (double r, double g, double b)
+    {
+        juce::Array<juce::var> rgb { r, g, b };
+        return juce::var (rgb);
+    };
+
+    juce::var cmd;
+    switch (backgroundId)
+    {
+        case bgBlur:  cmd = makeObject ({ { "cmd", "background" }, { "mode", "blur" } }); break;
+        case bgImage: cmd = makeObject ({ { "cmd", "background" }, { "mode", "image" },
+                                          { "path", backgroundImage.getFullPathName() } }); break;
+        case bgBlack: cmd = makeObject ({ { "cmd", "background" }, { "mode", "color" }, { "color", colour (0.0, 0.0, 0.0) } }); break;
+        case bgWhite: cmd = makeObject ({ { "cmd", "background" }, { "mode", "color" }, { "color", colour (0.95, 0.95, 0.95) } }); break;
+        case bgGrey:  cmd = makeObject ({ { "cmd", "background" }, { "mode", "color" }, { "color", colour (0.16, 0.16, 0.18) } }); break;
+        case bgGreen: cmd = makeObject ({ { "cmd", "background" }, { "mode", "color" }, { "color", colour (0.55, 0.75, 0.55) } }); break;
+        default:      backgroundId = bgOriginal;
+                      cmd = makeObject ({ { "cmd", "background" }, { "mode", "original" } }); break;
+    }
+
+    engineLink.sendCommand (cmd);
+}
+
+void ReelsCaptureProcessor::setBackgroundImage (const juce::File& image)
+{
+    backgroundImage = image;
+    setBackground (bgImage);
+}
+
+void ReelsCaptureProcessor::sendVideoSettings()
+{
+    sendCrop();
+    setCameraEnabled (cameraEnabled);
+    setBackground (backgroundId);
+}
+
 void ReelsCaptureProcessor::handleEngineEvent (const juce::var& ev)
 {
     const auto event = ev["event"].toString();
 
     if (event == "welcome")
     {
-        sendCrop();
+        sendVideoSettings();
     }
     else if (event == "recording")
     {
@@ -254,6 +303,9 @@ void ReelsCaptureProcessor::getStateInformation (juce::MemoryBlock& dest)
 {
     juce::XmlElement xml ("ReelsCapture");
     xml.setAttribute ("cropX", (double) cropPosition);
+    xml.setAttribute ("camera", cameraEnabled);
+    xml.setAttribute ("background", backgroundId);
+    xml.setAttribute ("backgroundImage", backgroundImage.getFullPathName());
     copyXmlToBinary (xml, dest);
 }
 
@@ -261,7 +313,13 @@ void ReelsCaptureProcessor::setStateInformation (const void* data, int size)
 {
     if (auto xml = getXmlFromBinary (data, size))
         if (xml->hasTagName ("ReelsCapture"))
+        {
             cropPosition = (float) xml->getDoubleAttribute ("cropX", 0.5);
+            cameraEnabled = xml->getBoolAttribute ("camera", true);
+            backgroundId = xml->getIntAttribute ("background", bgOriginal);
+            const auto path = xml->getStringAttribute ("backgroundImage");
+            backgroundImage = juce::File::isAbsolutePath (path) ? juce::File (path) : juce::File();
+        }
 }
 
 //==============================================================================

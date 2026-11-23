@@ -28,12 +28,19 @@ private:
 
     juce::TextButton recordButton, stopButton, exportButton;
     juce::Slider cropSlider;
+    juce::ToggleButton cameraToggle;
+    juce::ComboBox backgroundBox;
+    juce::TextButton imageButton;
+    std::unique_ptr<juce::FileChooser> fileChooser;
+
+    void chooseBackgroundImage();
+    void syncVideoControls();
 
     float momentaryLufs = -100.0f, shortTermLufs = -100.0f;
     int lastPreviewCounter = -1;
     juce::String lastStatus;
 
-    juce::Rectangle<int> meterPanel, loudnessPanel, previewPanel, headerArea, statusArea, cropLabelArea;
+    juce::Rectangle<int> meterPanel, loudnessPanel, previewPanel, headerArea, statusArea, cropLabelArea, videoArea;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ReelsCaptureEditor)
 };
