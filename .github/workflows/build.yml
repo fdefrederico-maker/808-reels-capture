@@ -1,0 +1,79 @@
+name: Compilar plugin (macOS)
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write   # necessário para publicar na página Releases
+
+jobs:
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 60
+
+    steps:
+      - name: Obter o código
+        uses: actions/checkout@v4
+
+      - name: Configurar (CMake)
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+
+      - name: Compilar
+        run: cmake --build build --config Release -j "$(sysctl -n hw.ncpu)"
+
+      - name: Assinar (ad-hoc) e preparar pacote
+        run: |
+          set -euo pipefail
+          ART="build/plugin/ReelsCapture_artefacts/Release"
+          PKG="dist/808-Reels-Capture"
+          mkdir -p "$PKG"
+
+          cp -R "$ART/VST3/808 Reels Capture.vst3"      "$PKG/"
+          cp -R "$ART/AU/808 Reels Capture.component"   "$PKG/"
+
+          for b in "$PKG/808 Reels Capture.vst3" "$PKG/808 Reels Capture.component"; do
+            codesign --force --deep --sign - --timestamp=none "$b"
+            codesign --verify --deep --strict --verbose=2 "$b"
+          done
+
+          lipo -info "$PKG/808 Reels Capture.vst3/Contents/MacOS/808 Reels Capture"
+
+          cp packaging/instalar.sh packaging/LEIA-ME.txt "$PKG/"
+          chmod +x "$PKG/instalar.sh"
+
+          VERSION="0.1.${GITHUB_RUN_NUMBER}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          (cd dist && ditto -c -k --sequesterRsrc --keepParent "808-Reels-Capture" "808-Reels-Capture-v${VERSION}.zip")
+          ls -la dist
+
+      - name: Validar o Audio Unit (auval)
+        continue-on-error: true
+        run: |
+          mkdir -p ~/Library/Audio/Plug-Ins/Components
+          cp -R "dist/808-Reels-Capture/808 Reels Capture.component" ~/Library/Audio/Plug-Ins/Components/
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
+          sleep 3
+          auval -v aufx R8cp Rels
+
+      - name: Guardar o zip como artefacto da compilação
+        uses: actions/upload-artifact@v4
+        with:
+          name: 808-Reels-Capture-v${{ env.VERSION }}
+          path: dist/808-Reels-Capture-v${{ env.VERSION }}.zip
+
+      - name: Publicar na página Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v${VERSION}"
+          gh release create "$TAG" "dist/808-Reels-Capture-v${VERSION}.zip" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "808 Reels Capture v${VERSION}" \
+            --notes "Compilação automática do ramo \`${GITHUB_REF_NAME}\` (commit ${GITHUB_SHA::7}).
+
+          Descarregue o ficheiro .zip abaixo e siga o LEIA-ME.txt que está dentro."

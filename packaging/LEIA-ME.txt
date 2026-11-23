@@ -1,0 +1,20 @@
+808 Reels Capture — plugin (VST3 + AU)
+======================================
+
+Instalação (só é preciso fazer uma vez por versão):
+
+1. Abra a app "Terminal" (Cmd + Espaço, escreva Terminal, Enter).
+2. Cole esta linha e carregue em Enter:
+
+   bash ~/Downloads/808-Reels-Capture/instalar.sh
+
+   (Se a pasta não estiver em Transferências/Downloads, escreva "bash " com
+   um espaço e arraste o ficheiro instalar.sh para a janela do Terminal.)
+
+3. No FL Studio: Options > Manage plugins > Find more plugins.
+4. No Mixer, selecione a pista Master, clique num slot vazio e escolha
+   "808 Reels Capture".
+
+Instalação manual (alternativa):
+  - "808 Reels Capture.vst3"      -> ~/Library/Audio/Plug-Ins/VST3/
+  - "808 Reels Capture.component" -> ~/Library/Audio/Plug-Ins/Components/
