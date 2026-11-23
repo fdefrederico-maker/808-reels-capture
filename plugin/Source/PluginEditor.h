@@ -26,7 +26,8 @@ private:
     reels::MeterScale scale;
     reels::ChannelMeter meterL { "L" }, meterR { "R" };
 
-    juce::TextButton recordButton, stopButton, exportButton;
+    juce::TextButton recordButton, stopButton, exportButton, clearButton;
+    void askToClearFolder();
     juce::Slider cropSlider, zoomSlider, cropYSlider;
     juce::ToggleButton cameraToggle;
     juce::ComboBox backgroundBox, effectBox;

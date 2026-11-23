@@ -42,6 +42,13 @@ ReelsCaptureEditor::ReelsCaptureEditor (ReelsCaptureProcessor& p)
     exportButton.setButtonText ("Exportar");
     exportButton.setTooltip (pt ("Mostrar o último MP4 no Finder"));
 
+    clearButton.setButtonText (pt ("Limpar pasta"));
+    clearButton.setTooltip (pt ("Apaga de vez todos os vídeos e áudios gravados (Filmes > 808 Reels Capture)"));
+    clearButton.setColour (juce::TextButton::buttonColourId, colours::panel);
+    clearButton.setColour (juce::TextButton::textColourOffId, colours::textDim);
+    clearButton.onClick = [this] { askToClearFolder(); };
+    addAndMakeVisible (clearButton);
+
     recordButton.onClick = [this] { processor.startRecording(); updateButtons(); };
     stopButton.onClick   = [this] { processor.stopRecording();  updateButtons(); };
     exportButton.onClick = [this] { processor.revealLastExport(); };
@@ -225,6 +232,45 @@ void ReelsCaptureEditor::chooseBackgroundImage()
     });
 }
 
+void ReelsCaptureEditor::askToClearFolder()
+{
+    const auto usage = ReelsCaptureProcessor::measureOutputFolder();
+
+    if (usage.files == 0)
+    {
+        juce::NativeMessageBox::showAsync (juce::MessageBoxOptions()
+                                               .withIconType (juce::MessageBoxIconType::InfoIcon)
+                                               .withTitle (pt ("Limpar pasta"))
+                                               .withMessage (pt ("A pasta já está vazia."))
+                                               .withButton ("OK")
+                                               .withAssociatedComponent (this),
+                                           nullptr);
+        return;
+    }
+
+    const auto mb = juce::String ((double) usage.bytes / (1024.0 * 1024.0), 1);
+    const auto message = pt ("Vão ser apagados DEFINITIVAMENTE ") + juce::String (usage.files)
+                       + pt (" ficheiros (") + mb + pt (" MB): todos os MP4, WAV e vídeos brutos em\n")
+                       + pt ("Filmes > 808 Reels Capture.\n\nNão vão para o Lixo e não podem ser recuperados.");
+
+    juce::Component::SafePointer<ReelsCaptureEditor> safeThis (this);
+    juce::NativeMessageBox::showAsync (juce::MessageBoxOptions()
+                                           .withIconType (juce::MessageBoxIconType::WarningIcon)
+                                           .withTitle (pt ("Apagar tudo?"))
+                                           .withMessage (message)
+                                           .withButton (pt ("Apagar tudo"))
+                                           .withButton ("Cancelar")
+                                           .withAssociatedComponent (this),
+                                       [safeThis] (int result)
+    {
+        if (safeThis != nullptr && result == 0)   // 0 = 1.º botão ("Apagar tudo")
+        {
+            safeThis->processor.clearOutputFolder();
+            safeThis->repaint();
+        }
+    });
+}
+
 void ReelsCaptureEditor::updateButtons()
 {
     using S = ReelsCaptureProcessor::SessionState;
@@ -233,6 +279,7 @@ void ReelsCaptureEditor::updateButtons()
     recordButton.setEnabled (state == S::idle);
     stopButton.setEnabled (state == S::recording);
     exportButton.setEnabled (state != S::recording);
+    clearButton.setEnabled (processor.canClearOutputFolder());
 
     recordButton.setToggleState (state == S::recording, juce::dontSendNotification);
 
@@ -313,6 +360,7 @@ void ReelsCaptureEditor::paint (juce::Graphics& g)
         juce::String info = juce::String (sr / 1000.0, 1) + " kHz";
         if (std::abs (sr - 48000.0) > 1.0)
             info << pt ("  \xc2\xb7  WAV convertido para 48 kHz");
+        h.removeFromRight (clearButton.getWidth() + 12);
         g.drawText (info, h, juce::Justification::centredRight);
     }
 
@@ -458,6 +506,7 @@ void ReelsCaptureEditor::resized()
     auto area = getLocalBounds().reduced (16);
 
     headerArea = area.removeFromTop (32);
+    clearButton.setBounds (headerArea.getRight() - 120, headerArea.getY() + 2, 120, 28);
     area.removeFromTop (12);
 
     auto buttons = area.removeFromBottom (44);

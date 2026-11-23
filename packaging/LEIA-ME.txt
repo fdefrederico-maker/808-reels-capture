@@ -22,7 +22,7 @@ PRIMEIRA VEZ (e depois de cada atualização): AUTORIZAR A GRAVAÇÃO DE ECRÃ
 3. Feche a janela do plugin, espere 3 segundos e volte a abri-la.
    A pré-visualização vertical deve aparecer.
 
-ONDE FICAM OS FICHEIROS
+ONDE FICAM OS FICHEIROS (o botão "Limpar pasta" do plugin apaga tudo de vez)
 
   ~/Movies/808 Reels Capture/            -> os MP4 finais (Filmes)
   ~/Movies/808 Reels Capture/Brutos/     -> WAV e vídeo sem som de cada take

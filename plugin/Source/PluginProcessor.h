@@ -93,6 +93,12 @@ public:
 
     static juce::File getOutputFolder();
 
+    // "Limpar pasta": apaga DEFINITIVAMENTE tudo o que está na pasta de saída
+    struct FolderUsage { int files = 0; juce::int64 bytes = 0; };
+    static FolderUsage measureOutputFolder();
+    bool canClearOutputFolder() const      { return sessionState == SessionState::idle; }
+    void clearOutputFolder();
+
 private:
     void handleEngineEvent (const juce::var& ev);
     void sendCrop();

@@ -123,6 +123,71 @@ juce::File ReelsCaptureProcessor::getOutputFolder()
                .getChildFile ("808 Reels Capture");
 }
 
+namespace
+{
+    // Todos os ficheiros (incluindo ocultos e subpastas) dentro da pasta de saída
+    juce::Array<juce::File> outputFiles()
+    {
+        const auto folder = ReelsCaptureProcessor::getOutputFolder();
+        if (! folder.isDirectory())
+            return {};
+        return folder.findChildFiles (juce::File::findFiles, true, "*", juce::File::FollowSymlinks::no);
+    }
+}
+
+ReelsCaptureProcessor::FolderUsage ReelsCaptureProcessor::measureOutputFolder()
+{
+    FolderUsage usage;
+    for (auto& f : outputFiles())
+    {
+        ++usage.files;
+        usage.bytes += f.getSize();
+    }
+    return usage;
+}
+
+void ReelsCaptureProcessor::clearOutputFolder()
+{
+    if (! canClearOutputFolder())
+    {
+        statusText = pt ("Não é possível limpar enquanto grava ou exporta.");
+        return;
+    }
+
+    const auto folder = getOutputFolder();
+
+    // Segurança: só mexe exatamente em ~/Movies/808 Reels Capture (e nunca segue atalhos)
+    if (! folder.isDirectory() || folder.isSymbolicLink()
+        || folder.getFileName() != "808 Reels Capture"
+        || folder.getParentDirectory() != juce::File::getSpecialLocation (juce::File::userMoviesDirectory))
+    {
+        statusText = pt ("A pasta já está vazia.");
+        return;
+    }
+
+    const auto before = measureOutputFolder();
+    int failed = 0;
+
+    for (auto& child : folder.findChildFiles (juce::File::findFilesAndDirectories, false, "*"))
+    {
+        // deleteRecursively apaga de vez (não vai para o Lixo); não segue atalhos
+        if (! child.deleteRecursively (false))
+            ++failed;
+    }
+
+    lastExport = juce::File();
+    engineLink.sendCommand (makeObject ({ { "cmd", "forget" } }));
+
+    const auto after = measureOutputFolder();
+    const auto freedMB = (double) (before.bytes - after.bytes) / (1024.0 * 1024.0);
+
+    if (failed == 0)
+        statusText = pt ("Pasta limpa: ") + juce::String (before.files - after.files)
+                     + pt (" ficheiros apagados (") + juce::String (freedMB, 1) + " MB).";
+    else
+        statusText = pt ("Alguns ficheiros não puderam ser apagados (") + juce::String (after.files) + pt (" ficaram).");
+}
+
 void ReelsCaptureProcessor::editorVisibilityChanged (bool editorIsOpen)
 {
     editorOpen = editorIsOpen;

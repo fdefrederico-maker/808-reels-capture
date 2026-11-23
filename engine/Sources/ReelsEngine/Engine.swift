@@ -261,6 +261,10 @@ final class Engine {
             recorder = nil
             state = .idle
 
+        case "forget":
+            // O plugin apagou a pasta: esquecer a última gravação
+            if state == .idle { lastTake = nil }
+
         case "export":
             if let take = lastTake, state == .idle {
                 export(take)
