@@ -445,6 +445,7 @@ void ReelsCaptureProcessor::getStateInformation (juce::MemoryBlock& dest)
     xml.setAttribute ("cropY", (double) cropY);
     xml.setAttribute ("zoom", (double) flZoom);
     xml.setAttribute ("syncMs", (double) syncOffsetMs);
+    xml.setAttribute ("uiScale", (double) editorScale);
     xml.setAttribute ("camera", cameraEnabled);
     xml.setAttribute ("effect", effectId);
     xml.setAttribute ("background", backgroundId);
@@ -461,6 +462,7 @@ void ReelsCaptureProcessor::setStateInformation (const void* data, int size)
             cropY = (float) xml->getDoubleAttribute ("cropY", 0.5);
             flZoom = juce::jlimit (1.0f, 4.0f, (float) xml->getDoubleAttribute ("zoom", 1.0));
             setSyncOffsetMs ((float) xml->getDoubleAttribute ("syncMs", 0.0));
+            setEditorScale ((float) xml->getDoubleAttribute ("uiScale", 1.0));
             cameraEnabled = xml->getBoolAttribute ("camera", true);
             effectId = juce::jlimit ((int) fxNone, (int) fxTv, xml->getIntAttribute ("effect", fxNone));
             backgroundId = xml->getIntAttribute ("background", bgOriginal);

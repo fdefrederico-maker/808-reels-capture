@@ -37,6 +37,10 @@ private:
     void askToClearFolder();
     void framingChanged();
 
+    // Janela redimensionável: tudo é desenhado a 760×600 e ampliado por igual
+    float uiScale() const { return (float) getWidth() / 760.0f; }
+    juce::Point<float> toDesign (juce::Point<float> p) const { return p / uiScale(); }
+
     void paintSpine (juce::Graphics&);
     void paintLoudness (juce::Graphics&);
     void paintMeters (juce::Graphics&);

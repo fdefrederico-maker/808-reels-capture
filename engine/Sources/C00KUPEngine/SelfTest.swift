@@ -59,10 +59,10 @@ enum SelfTest {
             if let jpeg = compositor.previewJPEG(image),
                let src = CGImageSourceCreateWithData(jpeg as CFData, nil),
                let cg = CGImageSourceCreateImageAtIndex(src, 0, nil) {
-                check(cg.width == 270 && cg.height == 480, "pré-visualização \(cg.width)x\(cg.height) (esperado 270x480)")
-                let p = pixelOf(cg, x: 135, y: 240)
+                check(cg.width == 540 && cg.height == 960, "pré-visualização \(cg.width)x\(cg.height) (esperado 540x960)")
+                let p = pixelOf(cg, x: 270, y: 480)
                 check(colourName(p) == expected, "pré-visualização x=\(cropX): centro \(colourName(p)) igual ao vídeo")
-                let t = pixelOf(cg, x: 135, y: 4)
+                let t = pixelOf(cg, x: 270, y: 8)
                 check(t.r > 200 && t.g > 200 && t.b > 200, "pré-visualização x=\(cropX): topo branco")
             } else {
                 check(false, "pré-visualização JPEG não gerada")

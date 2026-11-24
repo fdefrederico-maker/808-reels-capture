@@ -14,7 +14,7 @@ final class Compositor {
 
     static let outputSize = CGSize(width: 1080, height: 1920)
     static let cameraBandHeight: CGFloat = 600            // ~31% do topo, como nos reels de produtores
-    static let previewScale: CGFloat = 0.25               // 270 x 480
+    static let previewScale: CGFloat = 0.5                // 540 x 960 (nítido com a janela do plugin esticada)
     static var previewSize: CGSize {
         CGSize(width: outputSize.width * previewScale, height: outputSize.height * previewScale)
     }

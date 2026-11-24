@@ -90,6 +90,10 @@ public:
     void setSyncOffsetMs (float ms)        { syncOffsetMs = juce::jlimit (-500.0f, 500.0f, ms); }
     float getSyncOffsetMs() const          { return syncOffsetMs; }
 
+    // Tamanho da janela do plugin (1 = 760×600, até 2 = 1520×1200); guardado no projeto
+    void setEditorScale (float s)          { editorScale = juce::jlimit (1.0f, 2.0f, s); }
+    float getEditorScale() const           { return editorScale; }
+
 
     float getExportProgress() const        { return exportProgress; }
     const juce::String& getStatusText() const { return statusText; }
@@ -124,6 +128,7 @@ private:
     float cropY = 0.5f;
     float flZoom = 1.0f;
     float syncOffsetMs = 0.0f;
+    float editorScale = 1.0f;
     std::atomic<double> blockSeconds { 0.01 };   // duração de um bloco de áudio (latência de saída)
 
     juce::int64 heardTicks (juce::int64 processedTicks) const;

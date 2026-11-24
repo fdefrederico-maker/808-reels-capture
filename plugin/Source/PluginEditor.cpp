@@ -168,7 +168,14 @@ ReelsCaptureEditor::ReelsCaptureEditor (ReelsCaptureProcessor& p)
     statusHotspot.setInterceptsMouseClicks (true, false);
     addAndMakeVisible (statusHotspot);
 
-    setSize (editorWidth, editorHeight);
+    // Esticar pelo canto (ou pela janela do FL), mantendo a proporção 760:600
+    setResizable (true, true);
+    setResizeLimits (editorWidth, editorHeight, editorWidth * 2, editorHeight * 2);
+    if (auto* c = getConstrainer())
+        c->setFixedAspectRatio ((double) editorWidth / (double) editorHeight);
+
+    const float scale = processor.getEditorScale();
+    setSize (juce::roundToInt (editorWidth * scale), juce::roundToInt (editorHeight * scale));
 
     juce::Desktop::getInstance().addFocusChangeListener (this);
     processor.editorVisibilityChanged (true);
@@ -199,6 +206,19 @@ void ReelsCaptureEditor::resized()
     syncKnob.setBounds   (466, 327, 48, 48);
 
     layoutFooter();
+
+    // Os componentes ficam posicionados em coordenadas de 760×600 e são ampliados por igual
+    const float scale = uiScale();
+    for (auto* child : getChildren())
+    {
+        if (dynamic_cast<juce::ResizableCornerComponent*> (child) != nullptr
+            || dynamic_cast<juce::TooltipWindow*> (child) != nullptr)
+            continue;
+        child->setTransform (juce::AffineTransform::scale (scale));
+    }
+
+    processor.setEditorScale (scale);
+    repaint();
 }
 
 void ReelsCaptureEditor::layoutFooter()
@@ -349,6 +369,7 @@ ReelsCaptureEditor::Status ReelsCaptureEditor::currentStatus() const
 void ReelsCaptureEditor::paint (juce::Graphics& g)
 {
     g.fillAll (colours::fundo);
+    g.addTransform (juce::AffineTransform::scale (uiScale()));
 
     paintSpine (g);
     paintLoudness (g);
@@ -566,6 +587,8 @@ void ReelsCaptureEditor::paintFooterStatus (juce::Graphics& g)
 
 void ReelsCaptureEditor::paintOverChildren (juce::Graphics& g)
 {
+    g.addTransform (juce::AffineTransform::scale (uiScale()));
+
     // Foco por teclado: contorno de 2 px marfim, afastado 2 px
     auto* focused = juce::Component::getCurrentlyFocusedComponent();
     if (focused == nullptr || focused == this || ! isParentOf (focused) || ! focused->isShowing())
@@ -599,7 +622,7 @@ void ReelsCaptureEditor::mouseDown (const juce::MouseEvent& e)
 {
     for (int ch = 0; ch < 2; ++ch)
     {
-        if (meterMax[ch].expanded (4.0f).contains (e.position))
+        if (meterMax[ch].expanded (4.0f).contains (toDesign (e.position)))
         {
             maxDb[0] = maxDb[1] = -100.0f;
             clipped[0] = clipped[1] = false;
@@ -608,7 +631,7 @@ void ReelsCaptureEditor::mouseDown (const juce::MouseEvent& e)
         }
     }
 
-    draggingPreview = previewArea.contains (e.position);
+    draggingPreview = previewArea.contains (toDesign (e.position));
     dragStartX = processor.getCropPosition();
     dragStartY = (float) (0.5 - heightKnob.getValue() / 100.0);
     if (draggingPreview)
@@ -621,8 +644,8 @@ void ReelsCaptureEditor::mouseDrag (const juce::MouseEvent& e)
         return;
 
     const float zoom = (float) zoomKnob.getValue();
-    const float dx = (float) e.getDistanceFromDragStartX() / previewArea.getWidth();
-    const float dy = (float) e.getDistanceFromDragStartY() / previewArea.getHeight();
+    const float dx = (float) e.getDistanceFromDragStartX() / uiScale() / previewArea.getWidth();
+    const float dy = (float) e.getDistanceFromDragStartY() / uiScale() / previewArea.getHeight();
 
     const float newX = juce::jlimit (0.0f, 1.0f, dragStartX - dx / (1.0f + zoom));
     const float newY = juce::jlimit (0.0f, 1.0f, dragStartY - dy * 2.0f / zoom);
@@ -640,9 +663,10 @@ void ReelsCaptureEditor::mouseUp (const juce::MouseEvent& e)
 
 void ReelsCaptureEditor::mouseMove (const juce::MouseEvent& e)
 {
-    if (previewArea.contains (e.position))
+    const auto p = toDesign (e.position);
+    if (previewArea.contains (p))
         setMouseCursor (juce::MouseCursor::DraggingHandCursor);
-    else if (meterMax[0].expanded (4.0f).contains (e.position) || meterMax[1].expanded (4.0f).contains (e.position))
+    else if (meterMax[0].expanded (4.0f).contains (p) || meterMax[1].expanded (4.0f).contains (p))
         setMouseCursor (juce::MouseCursor::PointingHandCursor);
     else
         setMouseCursor (juce::MouseCursor::NormalCursor);
@@ -650,13 +674,13 @@ void ReelsCaptureEditor::mouseMove (const juce::MouseEvent& e)
 
 void ReelsCaptureEditor::mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel)
 {
-    if (previewArea.contains (e.position))
+    if (previewArea.contains (toDesign (e.position)))
         zoomKnob.setValue (zoomKnob.getValue() * (1.0 + wheel.deltaY * 0.5));
 }
 
 void ReelsCaptureEditor::mouseMagnify (const juce::MouseEvent& e, float scaleFactor)
 {
-    if (previewArea.contains (e.position))
+    if (previewArea.contains (toDesign (e.position)))
         zoomKnob.setValue (zoomKnob.getValue() * scaleFactor);
 }
 

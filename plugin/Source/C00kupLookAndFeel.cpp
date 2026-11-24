@@ -412,6 +412,14 @@ void LookAndFeel::getIdealPopupMenuItemSize (const juce::String& text, bool isSe
 }
 
 //==============================================================================
+void LookAndFeel::drawCornerResizer (juce::Graphics& g, int w, int h, bool isMouseOver, bool isMouseDragging)
+{
+    g.setColour (isMouseOver || isMouseDragging ? colours::marfim : colours::bordaHover);
+    const float size = (float) juce::jmin (w, h);
+    for (float i = 0.3f; i < 1.0f; i += 0.3f)
+        g.drawLine ((float) w - size * i, (float) h - 1.0f, (float) w - 1.0f, (float) h - size * i, 1.5f);
+}
+
 void LookAndFeel::drawTooltip (juce::Graphics& g, const juce::String& text, int width, int height)
 {
     g.fillAll (colours::superficie);
