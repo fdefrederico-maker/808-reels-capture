@@ -34,6 +34,11 @@ final class Compositor {
     var backgroundColor = CIColor(red: 0.07, green: 0.07, blue: 0.09)
     var backgroundImage: CIImage?
 
+    /// Ganho automático de brilho da câmara (1 = sem alteração). Ajustado aos poucos.
+    private(set) var cameraGain: CGFloat = 1
+    var autoExposure = true
+    private var exposureFrameCounter = 0
+
     init() {
         context = CIContext(options: [
             .workingColorSpace: colorSpace,
@@ -141,8 +146,43 @@ final class Compositor {
         return buffer
     }
 
+    /// Mede o brilho médio da câmara (de vez em quando) e ajusta o ganho para um nível agradável.
+    private func updateExposure(_ source: CIImage) {
+        exposureFrameCounter += 1
+        guard autoExposure, exposureFrameCounter % 6 == 1 else { return }
+
+        guard let average = CIFilter(name: "CIAreaAverage", parameters: [
+            kCIInputImageKey: source,
+            kCIInputExtentKey: CIVector(cgRect: source.extent),
+        ])?.outputImage else { return }
+
+        var pixel = [UInt8](repeating: 0, count: 4)
+        context.render(average, toBitmap: &pixel, rowBytes: 4,
+                       bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
+                       format: .RGBA8, colorSpace: colorSpace)
+        let luminance = (0.2126 * CGFloat(pixel[0]) + 0.7152 * CGFloat(pixel[1]) + 0.0722 * CGFloat(pixel[2])) / 255
+
+        let wanted = min(max(0.36 / max(luminance, 0.01), 1), 4)    // nunca escurece; no máximo 4x
+        cameraGain += (wanted - cameraGain) * 0.3                   // muda devagar (sem piscar)
+    }
+
+    /// Câmara com o brilho corrigido (e menos grão quando é preciso aclarar muito).
+    private func exposed(_ source: CIImage) -> CIImage {
+        updateExposure(source)
+        guard cameraGain > 1.05 else { return source }
+
+        var image = source.applyingFilter("CIExposureAdjust", parameters: [kCIInputEVKey: log2(cameraGain)])
+        if cameraGain > 1.6 {
+            image = image.applyingFilter("CINoiseReduction", parameters: [
+                "inputNoiseLevel": 0.03,
+                "inputSharpness": 0.5,
+            ])
+        }
+        return image.cropped(to: source.extent)
+    }
+
     private func composeCamera(_ frame: CameraFrame, in rect: CGRect) -> CIImage {
-        let source = CIImage(cvPixelBuffer: frame.image)
+        let source = exposed(CIImage(cvPixelBuffer: frame.image))
         let camera = Compositor.fill(source, into: rect, alignX: 0.5, mirror: mirrorCamera)
 
         guard backgroundMode != .original, let maskBuffer = frame.mask else { return camera }

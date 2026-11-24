@@ -42,6 +42,15 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     var onFrame: ((CameraFrame, UInt64) -> Void)?
 
     private var _latency: Double = 0
+    private var _fps: Double = 0
+    private var frameTimes: [UInt64] = []
+    private var device: AVCaptureDevice?
+
+    /// Imagens por segundo que a câmara está REALMENTE a entregar (com pouca luz desce para ~15).
+    var measuredFPS: Double {
+        lock.lock(); defer { lock.unlock() }
+        return _fps
+    }
 
     /// Atraso médio medido entre a captura e a chegada ao motor (segundos).
     var measuredLatency: Double {
@@ -152,12 +161,35 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
             session.commitConfiguration()
 
             deviceName = device.localizedName
+            self.device = device
             configured = true
         }
 
         session.startRunning()
+        lockFrameRate()
         running = session.isRunning
         setProblem(running ? .none : .failed("A câmara não arrancou (está a ser usada por outra app?)."))
+    }
+
+    /// Obriga a câmara a 30 imagens/s. Sem isto, com pouca luz o macOS desce para ~15 fps
+    /// (cada imagem fica o dobro do tempo exposta: movimento aos saltos e atrasado).
+    /// A imagem fica mais escura, mas o Compositor compensa o brilho.
+    private func lockFrameRate() {
+        guard let device else { return }
+        let target = CMTime(value: 1, timescale: 30)
+        let supports30 = device.activeFormat.videoSupportedFrameRateRanges.contains {
+            $0.minFrameRate <= 30.0 && $0.maxFrameRate >= 29.9
+        }
+        guard supports30 else { return }
+
+        do {
+            try device.lockForConfiguration()
+            device.activeVideoMinFrameDuration = target
+            device.activeVideoMaxFrameDuration = target
+            device.unlockForConfiguration()
+        } catch {
+            NSLog("808 Reels Engine: não foi possível fixar 30 fps: \(error)")
+        }
     }
 
     // MARK: - Imagens da câmara (fila da câmara)
@@ -189,9 +221,16 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         let frame = CameraFrame(image: pixelBuffer, mask: mask)
         let latency = HostClock.seconds(from: captureTicks, to: HostClock.now())
 
+        // Imagens por segundo reais (último segundo)
+        frameTimes.append(captureTicks)
+        while let first = frameTimes.first, HostClock.seconds(from: first, to: captureTicks) > 1.0 {
+            frameTimes.removeFirst()
+        }
+
         lock.lock()
         latest = frame
         _latency = _latency == 0 ? latency : _latency * 0.95 + latency * 0.05
+        _fps = Double(frameTimes.count)
         lock.unlock()
 
         onFrame?(frame, captureTicks)

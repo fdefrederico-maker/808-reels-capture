@@ -258,6 +258,10 @@ final class Engine {
     /// Resumo da sincronização automática (só informativo).
     private func syncNote() -> String {
         var parts: [String] = []
+        let fps = Int(camera.measuredFPS.rounded())
+        if fps > 0 && fps < 25 {
+            parts.append("câmara só a \(fps) fps (pouca luz: acenda uma luz à sua frente)")
+        }
         let camMs = Int((max(camera.measuredLatency, cameraArrivalLatency) * 1000).rounded())
         if camMs > 0 { parts.append("câmara \(camMs) ms") }
         if let out = outputLatency {

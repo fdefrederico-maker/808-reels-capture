@@ -280,6 +280,24 @@ enum SelfTest {
         p = readPixel(out, x: 880, y: 300)
         check(p.r > 200 && p.g > 200 && p.b < 60, "câmara espelhada: pessoa à direita")
 
+        // Quarto escuro: o brilho da câmara é corrigido automaticamente
+        let darkCam = makeBuffer(width: 1280, height: 720) { _, _ in (28, 26, 24) }
+        compositor.backgroundMode = .original
+        for _ in 0 ..< 60 { _ = render(CameraFrame(image: darkCam, mask: nil)) }
+        out = render(CameraFrame(image: darkCam, mask: nil))
+        p = readPixel(out, x: 540, y: 300)
+        check(p.r > 50, String(format: "pouca luz: câmara aclarada automaticamente (%d -> %d, ganho %.1fx)", 28, p.r, compositor.cameraGain))
+
+        // Câmara bem iluminada: não mexe
+        let brightCam = makeBuffer(width: 1280, height: 720) { _, _ in (150, 140, 130) }
+        let fresh = Compositor()
+        fresh.mirrorCamera = false
+        for _ in 0 ..< 30 {
+            let o = makeBuffer(width: 1080, height: 1920) { _, _ in (0, 0, 0) }
+            fresh.render(fresh.compose(fl: fl, camera: CameraFrame(image: brightCam, mask: nil)), to: o)
+        }
+        check(fresh.cameraGain < 1.05, String(format: "boa luz: brilho da câmara inalterado (ganho %.2fx)", fresh.cameraGain))
+
         // Desfocado e sem câmara não podem rebentar
         compositor.backgroundMode = .blur
         _ = render(CameraFrame(image: cam, mask: mask))
