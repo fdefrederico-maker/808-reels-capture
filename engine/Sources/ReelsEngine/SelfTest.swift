@@ -23,6 +23,7 @@ enum SelfTest {
         testCameraLayout()
         testZoom()
         testEffects()
+        testFrameRing()
         testRecordAndExport(dir: dir)
 
         print(failures == 0 ? "\nAUTOTESTE: TUDO OK" : "\nAUTOTESTE: \(failures) FALHA(S)")
@@ -116,6 +117,43 @@ enum SelfTest {
         out = render()
         p = readPixel(out, x: 540, y: 1850)
         check(p.r < 50 && p.g < 50 && p.b < 50, "zoom 3x + fundo: faixa preta visível")
+    }
+
+    // MARK: - Sincronização da câmara (imagens com a hora real de captura)
+
+    private static func testFrameRing() {
+        let ring = FrameRing(maxAge: 0.9)
+        let t0 = HostClock.now()
+        func at(_ s: Double) -> UInt64 { t0 &+ HostClock.ticks(seconds: s) }
+
+        // Câmara a 30 fps; cada imagem tem um valor = número do frame
+        var frames: [CVPixelBuffer] = []
+        for i in 0 ..< 60 {
+            let v = UInt8(i * 4)
+            frames.append(makeBuffer(width: 4, height: 4) { _, _ in (v, v, v) })
+        }
+
+        // As imagens CHEGAM com 250 ms de atraso e algumas fora de ordem,
+        // mas são guardadas com a hora em que foram CAPTADAS.
+        var order = Array(0 ..< 60)
+        order.swapAt(10, 11); order.swapAt(30, 32)
+        for i in order { ring.push(frames[i], ticks: at(Double(i) / 30)) }
+
+        // O frame de vídeo do instante 1,50 s deve usar a imagem captada em 1,50 s (n.º 45),
+        // e não a última que chegou (n.º 59).
+        let chosen = ring.frame(at: at(1.5 + 0.001))
+        let value = chosen.map { readPixel($0, x: 0, y: 0).r } ?? -1
+        check(value == 45 * 4, "anel de imagens: instante 1,50 s usa a imagem captada em 1,50 s (\(value / 4))")
+
+        // Imagens antigas são descartadas (só ~0,9 s fica guardado)
+        check(ring.count <= 29, "anel de imagens: descarta imagens antigas (\(ring.count) guardadas)")
+
+        // Instante anterior a tudo o que existe: usa a mais antiga em vez de nada
+        check(ring.frame(at: t0) != nil, "anel de imagens: devolve sempre uma imagem")
+
+        // Conversão segundos <-> relógio do sistema
+        let back = HostClock.seconds(from: t0, to: at(0.4))
+        check(abs(back - 0.4) < 0.0001, String(format: "relógio: 0,4 s ida e volta (%.6f)", back))
     }
 
     // MARK: - Efeitos retro

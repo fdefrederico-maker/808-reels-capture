@@ -74,6 +74,11 @@ final class VideoRecorder {
         writer.startSession(atSourceTime: .zero)
     }
 
+    /// Instante (relógio do sistema) que o frame `index` representa.
+    func ticks(forFrame index: Int64) -> UInt64 {
+        startTicks &+ HostClock.ticks(seconds: Double(index) / Double(VideoRecorder.fps))
+    }
+
     /// Índice do frame que corresponde ao instante `ticks`.
     func targetFrameIndex(at ticks: UInt64) -> Int64 {
         let elapsed = HostClock.seconds(from: startTicks, to: ticks)

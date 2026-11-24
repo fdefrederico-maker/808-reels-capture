@@ -28,7 +28,7 @@ private:
 
     juce::TextButton recordButton, stopButton, exportButton, clearButton;
     void askToClearFolder();
-    juce::Slider cropSlider, zoomSlider, cropYSlider;
+    juce::Slider cropSlider, zoomSlider, cropYSlider, syncSlider;
     juce::ToggleButton cameraToggle;
     juce::ComboBox backgroundBox, effectBox;
     juce::TextButton imageButton;

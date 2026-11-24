@@ -24,6 +24,8 @@ final class WindowCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     private var refreshInFlight = false
 
     private(set) var latestFrame: CVPixelBuffer?
+    /// Chamado (na fila do motor) para cada imagem nova, com a hora em que foi mostrada no ecrã.
+    var onFrame: ((CVPixelBuffer, UInt64) -> Void)?
     private(set) var problem: Problem = .none
     private(set) var windowTitle: String = ""
 
@@ -164,6 +166,9 @@ final class WindowCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         else { return }
 
         latestFrame = pixelBuffer
+
+        let displayTicks = (info[.displayTime] as? UInt64) ?? HostClock.now()
+        onFrame?(pixelBuffer, displayTicks)
     }
 
     // MARK: - SCStreamDelegate

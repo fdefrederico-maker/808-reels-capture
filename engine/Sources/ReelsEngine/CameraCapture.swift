@@ -38,6 +38,17 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     }()
     private let sequenceHandler = VNSequenceRequestHandler()
 
+    /// Chamado (na fila da câmara) para cada imagem, com a hora REAL em que foi captada.
+    var onFrame: ((CameraFrame, UInt64) -> Void)?
+
+    private var _latency: Double = 0
+
+    /// Atraso médio medido entre a captura e a chegada ao motor (segundos).
+    var measuredLatency: Double {
+        lock.lock(); defer { lock.unlock() }
+        return _latency
+    }
+
     var latestFrame: CameraFrame? {
         lock.lock(); defer { lock.unlock() }
         return latest
@@ -154,6 +165,17 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
 
+        // Hora de captura no relógio do sistema (o mesmo do áudio do plugin)
+        let pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+        let hostClock = CMClockGetHostTimeClock()
+        let sourceClock = session.synchronizationClock ?? hostClock
+        let hostTime = CMSyncConvertTime(pts, from: sourceClock, to: hostClock)
+        let now = HostClock.now()
+        var captureTicks = hostTime.isValid ? CMClockConvertHostTimeToSystemUnits(hostTime) : now
+        if captureTicks > now || HostClock.seconds(from: captureTicks, to: now) > 2 {
+            captureTicks = now   // carimbo inválido: usar a hora de chegada
+        }
+
         var mask: CVPixelBuffer?
         if segmentationEnabled {
             do {
@@ -164,8 +186,14 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
             }
         }
 
+        let frame = CameraFrame(image: pixelBuffer, mask: mask)
+        let latency = HostClock.seconds(from: captureTicks, to: HostClock.now())
+
         lock.lock()
-        latest = CameraFrame(image: pixelBuffer, mask: mask)
+        latest = frame
+        _latency = _latency == 0 ? latency : _latency * 0.95 + latency * 0.05
         lock.unlock()
+
+        onFrame?(frame, captureTicks)
     }
 }

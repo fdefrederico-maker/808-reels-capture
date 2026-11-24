@@ -20,9 +20,10 @@ bool ReelsCaptureProcessor::isBusesLayoutSupported (const BusesLayout& layouts) 
     return layouts.getMainInputChannelSet() == out;
 }
 
-void ReelsCaptureProcessor::prepareToPlay (double sampleRate, int /*samplesPerBlock*/)
+void ReelsCaptureProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     currentSampleRate.store (sampleRate);
+    blockSeconds.store (samplesPerBlock > 0 ? (double) samplesPerBlock / sampleRate : 0.01);
     numMeterChannels.store (juce::jlimit (1, maxMeterChannels, getTotalNumInputChannels()));
     rmsMeanSquare.fill (0.0);
 
@@ -247,7 +248,8 @@ void ReelsCaptureProcessor::stopRecording()
     const bool sent = videoActive && engineLink.sendCommand (makeObject ({
         { "cmd",             "stop" },
         { "wav",             take.file.getFullPathName() },
-        { "audioStartTicks", juce::String (take.startTicks) },   // texto: evita perder precisão
+        { "audioStartTicks", juce::String (heardTicks (take.startTicks)) },   // texto: evita perder precisão
+        { "syncOffsetMs",    syncOffsetMs },
         { "audioFrames",     juce::String (take.framesWritten) },
         { "audioSampleRate", WavRecorder::outputSampleRate }
     }));
@@ -341,11 +343,42 @@ void ReelsCaptureProcessor::setEffect (int newId)
     engineLink.sendCommand (makeObject ({ { "cmd", "effect" }, { "name", names[effectId - 1] } }));
 }
 
+/** O áudio processado agora só é OUVIDO depois do buffer de saída: é esse o instante
+    que conta para a sincronização com a câmara e o ecrã. */
+juce::int64 ReelsCaptureProcessor::heardTicks (juce::int64 processedTicks) const
+{
+    return processedTicks + juce::Time::secondsToHighResolutionTicks (blockSeconds.load());
+}
+
 void ReelsCaptureProcessor::sendBassLevel()
 {
     const float level = bassPeak.exchange (0.0f);
     if (effectId == fxGlitch && engineLink.isConnected())
-        engineLink.sendCommand (makeObject ({ { "cmd", "level" }, { "bass", level } }));
+    {
+        // O pico veio dos blocos dos últimos ~33 ms: carimbar no meio desse intervalo
+        const auto ticks = heardTicks (juce::Time::getHighResolutionTicks()
+                                       - juce::Time::secondsToHighResolutionTicks (0.016));
+        engineLink.sendCommand (makeObject ({ { "cmd", "level" }, { "bass", level },
+                                              { "ticks", juce::String (ticks) } }));
+    }
+}
+
+void ReelsCaptureProcessor::exportAgain()
+{
+    if (sessionState != SessionState::idle)
+        return;
+
+    if (lastExport != juce::File() && engineLink.isConnected()
+        && engineLink.sendCommand (makeObject ({ { "cmd", "export" }, { "syncOffsetMs", syncOffsetMs } })))
+    {
+        sessionState = SessionState::exporting;
+        revealWhenExported = true;
+        engineLink.setActive (true);
+        statusText = pt ("A exportar de novo com a sincronização atual...");
+        return;
+    }
+
+    revealLastExport();
 }
 
 void ReelsCaptureProcessor::sendVideoSettings()
@@ -376,6 +409,9 @@ void ReelsCaptureProcessor::handleEngineEvent (const juce::var& ev)
     {
         lastExport = juce::File (ev["path"].toString());
         statusText = pt ("MP4 pronto: ") + lastExport.getFileName();
+        if (revealWhenExported)
+            lastExport.revealToUser();
+        revealWhenExported = false;
         exportProgress = 1.0f;
         if (sessionState == SessionState::exporting)
             sessionState = SessionState::idle;
@@ -391,6 +427,7 @@ void ReelsCaptureProcessor::handleEngineEvent (const juce::var& ev)
             sessionState = SessionState::idle;
             engineLink.setActive (editorOpen);
         }
+        revealWhenExported = false;
     }
     else if (event == "disconnected")
     {
@@ -414,6 +451,7 @@ void ReelsCaptureProcessor::getStateInformation (juce::MemoryBlock& dest)
     xml.setAttribute ("cropX", (double) cropPosition);
     xml.setAttribute ("cropY", (double) cropY);
     xml.setAttribute ("zoom", (double) flZoom);
+    xml.setAttribute ("syncMs", (double) syncOffsetMs);
     xml.setAttribute ("camera", cameraEnabled);
     xml.setAttribute ("effect", effectId);
     xml.setAttribute ("background", backgroundId);
@@ -429,6 +467,7 @@ void ReelsCaptureProcessor::setStateInformation (const void* data, int size)
             cropPosition = (float) xml->getDoubleAttribute ("cropX", 0.5);
             cropY = (float) xml->getDoubleAttribute ("cropY", 0.5);
             flZoom = juce::jlimit (1.0f, 4.0f, (float) xml->getDoubleAttribute ("zoom", 1.0));
+            setSyncOffsetMs ((float) xml->getDoubleAttribute ("syncMs", 0.0));
             cameraEnabled = xml->getBoolAttribute ("camera", true);
             effectId = juce::jlimit ((int) fxNone, (int) fxTv, xml->getIntAttribute ("effect", fxNone));
             backgroundId = xml->getIntAttribute ("background", bgOriginal);

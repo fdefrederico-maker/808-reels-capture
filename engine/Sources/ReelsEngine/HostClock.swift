@@ -12,6 +12,11 @@ enum HostClock {
 
     static func now() -> UInt64 { mach_absolute_time() }
 
+    /// Converte uma duração em segundos para unidades do relógio (ticks).
+    static func ticks(seconds: Double) -> UInt64 {
+        UInt64(max(0, seconds) * 1_000_000_000.0 * Double(timebase.denom) / Double(timebase.numer))
+    }
+
     /// Segundos de `from` até `to` (pode ser negativo).
     static func seconds(from: UInt64, to: UInt64) -> Double {
         let delta = Int64(bitPattern: to &- from)

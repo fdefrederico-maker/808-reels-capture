@@ -56,20 +56,24 @@ final class Compositor {
             : outputRect
     }
 
-    /// Imagem final (1080x1920).
+    /// Imagem final (1080x1920) a partir das imagens originais (usado nos testes).
     func compose(fl: CVPixelBuffer?, camera: CameraFrame?) -> CIImage {
+        composeBands(fl: fl.flatMap { renderFLBand($0) },
+                     camera: camera.flatMap { renderCameraBand($0) })
+    }
+
+    /// Imagem final (1080x1920) a partir das faixas já preparadas (FL e câmara).
+    func composeBands(fl: CVPixelBuffer?, camera: CVPixelBuffer?) -> CIImage {
         var result = CIImage(color: CIColor(red: 0.04, green: 0.04, blue: 0.05)).cropped(to: outputRect)
 
         if let fl {
-            // alignY do Core Image conta a partir de baixo, por isso inverte-se
-            let image = Compositor.fill(CIImage(cvPixelBuffer: fl), into: flRect,
-                                        alignX: cropX, alignY: 1 - cropY, zoom: flZoom)
-            result = image.composited(over: result)
+            result = Compositor.fill(CIImage(cvPixelBuffer: fl), into: flRect, alignX: 0.5).composited(over: result)
         }
 
         if cameraEnabled {
             if let camera {
-                result = composeCamera(camera).composited(over: result)
+                result = Compositor.fill(CIImage(cvPixelBuffer: camera), into: cameraRect, alignX: 0.5)
+                    .composited(over: result)
             } else {
                 let placeholder = CIImage(color: CIColor(red: 0.12, green: 0.12, blue: 0.14)).cropped(to: cameraRect)
                 result = placeholder.composited(over: result)
@@ -79,8 +83,65 @@ final class Compositor {
         return result.cropped(to: outputRect)
     }
 
-    private func composeCamera(_ frame: CameraFrame) -> CIImage {
-        let rect = cameraRect
+    // MARK: - Faixas (preparadas logo que cada imagem chega)
+
+    private var flPool: CVPixelBufferPool?
+    private var flPoolSize: CGSize = .zero
+    private var cameraPool: CVPixelBufferPool?
+
+    /// Recorta/amplia a janela do FL para o tamanho da faixa de baixo (ou do ecrã todo).
+    func renderFLBand(_ frame: CVPixelBuffer) -> CVPixelBuffer? {
+        let size = flRect.size
+        if flPool == nil || flPoolSize != size {
+            flPool = Compositor.makePool(size)
+            flPoolSize = size
+        }
+        guard let pool = flPool, let out = Compositor.newBuffer(from: pool) else { return nil }
+
+        let local = CGRect(origin: .zero, size: size)
+        let background = CIImage(color: CIColor(red: 0.04, green: 0.04, blue: 0.05)).cropped(to: local)
+        // alignY do Core Image conta a partir de baixo, por isso inverte-se
+        let image = Compositor.fill(CIImage(cvPixelBuffer: frame), into: local,
+                                    alignX: cropX, alignY: 1 - cropY, zoom: flZoom)
+        context.render(image.composited(over: background), to: out, bounds: local, colorSpace: colorSpace)
+        return out
+    }
+
+    /// Câmara com o fundo já trocado, no tamanho da faixa de cima.
+    func renderCameraBand(_ frame: CameraFrame) -> CVPixelBuffer? {
+        if cameraPool == nil {
+            cameraPool = Compositor.makePool(cameraRect.size)
+        }
+        guard let pool = cameraPool, let out = Compositor.newBuffer(from: pool) else { return nil }
+
+        let local = CGRect(origin: .zero, size: cameraRect.size)
+        context.render(composeCamera(frame, in: local), to: out, bounds: local, colorSpace: colorSpace)
+        return out
+    }
+
+    private static func makePool(_ size: CGSize) -> CVPixelBufferPool? {
+        var pool: CVPixelBufferPool?
+        let attributes: [String: Any] = [
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+            kCVPixelBufferWidthKey as String: Int(size.width),
+            kCVPixelBufferHeightKey as String: Int(size.height),
+            kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any](),
+        ]
+        CVPixelBufferPoolCreate(kCFAllocatorDefault, nil, attributes as CFDictionary, &pool)
+        return pool
+    }
+
+    private static func newBuffer(from pool: CVPixelBufferPool) -> CVPixelBuffer? {
+        var buffer: CVPixelBuffer?
+        CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pool, &buffer)
+        if let buffer {
+            CVBufferSetAttachment(buffer, kCVImageBufferCGColorSpaceKey,
+                                  CGColorSpace(name: CGColorSpace.sRGB)!, .shouldPropagate)
+        }
+        return buffer
+    }
+
+    private func composeCamera(_ frame: CameraFrame, in rect: CGRect) -> CIImage {
         let source = CIImage(cvPixelBuffer: frame.image)
         let camera = Compositor.fill(source, into: rect, alignX: 0.5, mirror: mirrorCamera)
 

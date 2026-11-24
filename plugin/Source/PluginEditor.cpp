@@ -40,7 +40,7 @@ ReelsCaptureEditor::ReelsCaptureEditor (ReelsCaptureProcessor& p)
     recordButton.setButtonText (pt ("\xe2\x97\x8f  Gravar"));    // ●
     stopButton.setButtonText   (pt ("\xe2\x96\xa0  Parar"));     // ■
     exportButton.setButtonText ("Exportar");
-    exportButton.setTooltip (pt ("Mostrar o último MP4 no Finder"));
+    exportButton.setTooltip (pt ("Volta a montar o último vídeo com a Sincronização atual e mostra-o no Finder"));
 
     clearButton.setButtonText (pt ("Limpar pasta"));
     clearButton.setTooltip (pt ("Apaga de vez todos os vídeos e áudios gravados (Filmes > 808 Reels Capture)"));
@@ -51,7 +51,7 @@ ReelsCaptureEditor::ReelsCaptureEditor (ReelsCaptureProcessor& p)
 
     recordButton.onClick = [this] { processor.startRecording(); updateButtons(); };
     stopButton.onClick   = [this] { processor.stopRecording();  updateButtons(); };
-    exportButton.onClick = [this] { processor.revealLastExport(); };
+    exportButton.onClick = [this] { processor.exportAgain(); updateButtons(); };
 
     cropSlider.setSliderStyle (juce::Slider::LinearHorizontal);
     cropSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
@@ -65,7 +65,7 @@ ReelsCaptureEditor::ReelsCaptureEditor (ReelsCaptureProcessor& p)
     cropSlider.onValueChange = [this] { framingChanged(); };
     addAndMakeVisible (cropSlider);
 
-    for (auto* s : { &zoomSlider, &cropYSlider })
+    for (auto* s : { &zoomSlider, &cropYSlider, &syncSlider })
     {
         s->setSliderStyle (juce::Slider::LinearHorizontal);
         s->setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
@@ -81,6 +81,13 @@ ReelsCaptureEditor::ReelsCaptureEditor (ReelsCaptureProcessor& p)
     zoomSlider.setValue (processor.getZoom(), juce::dontSendNotification);
     zoomSlider.setDoubleClickReturnValue (true, 1.0);
     zoomSlider.setTooltip (pt ("Zoom da janela do FL: 1x mostra a janela toda na altura (duplo clique = 1x)"));
+
+    syncSlider.setRange (-300.0, 500.0, 10.0);
+    syncSlider.setValue (processor.getSyncOffsetMs(), juce::dontSendNotification);
+    syncSlider.setDoubleClickReturnValue (true, 0.0);
+    syncSlider.setTooltip (pt ("Ajuste fino: se a imagem aparecer atrasada em relação ao som, mova para a direita. "
+                               "Depois carregue em Exportar para refazer o último vídeo (duplo clique = 0)."));
+    syncSlider.onValueChange = [this] { processor.setSyncOffsetMs ((float) syncSlider.getValue()); repaint (videoArea); };
 
     cropYSlider.setRange (0.0, 1.0, 0.0);
     cropYSlider.setValue (processor.getCropY(), juce::dontSendNotification);
@@ -445,6 +452,12 @@ void ReelsCaptureEditor::paint (juce::Graphics& g)
                     juce::Justification::centredLeft);
         g.drawText (pt ("Cima/baixo"), cropYSlider.getBounds().withX (videoArea.getX()).withWidth (64),
                     juce::Justification::centredLeft);
+        g.drawText (pt ("Sincroniz."), syncSlider.getBounds().withX (videoArea.getX()).withWidth (64),
+                    juce::Justification::centredLeft);
+        const int ms = juce::roundToInt (syncSlider.getValue());
+        g.drawText ((ms > 0 ? "+" : "") + juce::String (ms) + " ms",
+                    syncSlider.getBounds().withX (syncSlider.getRight() + 4).withWidth (60),
+                    juce::Justification::centredLeft);
 
         if (processor.getBackgroundId() == ReelsCaptureProcessor::bgImage)
         {
@@ -544,7 +557,7 @@ void ReelsCaptureEditor::resized()
     {
         auto v = loudnessPanel.reduced (12, 8);
         v.removeFromTop (20 + 54 + 6 + 54 + 22);
-        videoArea = v.removeFromTop (222);
+        videoArea = v.removeFromTop (254);
 
         auto rows = videoArea;
         rows.removeFromTop (20);
@@ -572,6 +585,12 @@ void ReelsCaptureEditor::resized()
         yRow.removeFromLeft (66);
         yRow.removeFromRight (44);
         cropYSlider.setBounds (yRow);
+
+        rows.removeFromTop (6);
+        auto syncRow = rows.removeFromTop (24);
+        syncRow.removeFromLeft (66);
+        syncRow.removeFromRight (64);
+        syncSlider.setBounds (syncRow);
     }
 
     // Medidores dentro do painel MASTER

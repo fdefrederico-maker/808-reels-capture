@@ -85,6 +85,13 @@ public:
     float getCropPosition() const          { return cropPosition; }
     float getCropY() const                 { return cropY; }
     float getZoom() const                  { return flZoom; }
+
+    // Ajuste fino da sincronização (ms): positivo atrasa o som em relação à imagem
+    void setSyncOffsetMs (float ms)        { syncOffsetMs = juce::jlimit (-300.0f, 500.0f, ms); }
+    float getSyncOffsetMs() const          { return syncOffsetMs; }
+
+    // Exportar: volta a montar o último vídeo com o ajuste atual e mostra-o no Finder
+    void exportAgain();
     float getExportProgress() const        { return exportProgress; }
     const juce::String& getStatusText() const { return statusText; }
     bool hasLastExport() const             { return lastExport.existsAsFile(); }
@@ -114,6 +121,11 @@ private:
     float cropPosition = 0.5f;
     float cropY = 0.5f;
     float flZoom = 1.0f;
+    float syncOffsetMs = 0.0f;
+    bool revealWhenExported = false;
+    std::atomic<double> blockSeconds { 0.01 };   // duração de um bloco de áudio (latência de saída)
+
+    juce::int64 heardTicks (juce::int64 processedTicks) const;
     bool cameraEnabled = true;
     int effectId = fxNone;
 
