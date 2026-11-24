@@ -270,9 +270,15 @@ void ReelsCaptureProcessor::stopRecording()
 void ReelsCaptureProcessor::revealLastExport()
 {
     if (lastExport.existsAsFile())
-        lastExport.revealToUser();
+    {
+        lastExport.revealToUser();          // abre a pasta com o último vídeo selecionado
+    }
     else
-        getOutputFolder().revealToUser();
+    {
+        const auto folder = getOutputFolder();
+        folder.createDirectory();
+        folder.startAsProcess();            // abre a pasta no Finder
+    }
 }
 
 void ReelsCaptureProcessor::setCropPosition (float x)
@@ -363,24 +369,6 @@ void ReelsCaptureProcessor::sendBassLevel()
     }
 }
 
-void ReelsCaptureProcessor::exportAgain()
-{
-    if (sessionState != SessionState::idle)
-        return;
-
-    if (lastExport != juce::File() && engineLink.isConnected()
-        && engineLink.sendCommand (makeObject ({ { "cmd", "export" }, { "syncOffsetMs", syncOffsetMs } })))
-    {
-        sessionState = SessionState::exporting;
-        revealWhenExported = true;
-        engineLink.setActive (true);
-        statusText = pt ("A exportar de novo com a sincronização atual...");
-        return;
-    }
-
-    revealLastExport();
-}
-
 void ReelsCaptureProcessor::sendVideoSettings()
 {
     sendCrop();
@@ -408,10 +396,7 @@ void ReelsCaptureProcessor::handleEngineEvent (const juce::var& ev)
     else if (event == "exported")
     {
         lastExport = juce::File (ev["path"].toString());
-        statusText = pt ("MP4 pronto: ") + lastExport.getFileName();
-        if (revealWhenExported)
-            lastExport.revealToUser();
-        revealWhenExported = false;
+        statusText = pt ("MP4 pronto na pasta: ") + lastExport.getFileName() + pt ("  (carregue em Abrir pasta)");
         exportProgress = 1.0f;
         if (sessionState == SessionState::exporting)
             sessionState = SessionState::idle;
@@ -427,7 +412,6 @@ void ReelsCaptureProcessor::handleEngineEvent (const juce::var& ev)
             sessionState = SessionState::idle;
             engineLink.setActive (editorOpen);
         }
-        revealWhenExported = false;
     }
     else if (event == "disconnected")
     {

@@ -39,8 +39,8 @@ ReelsCaptureEditor::ReelsCaptureEditor (ReelsCaptureProcessor& p)
 
     recordButton.setButtonText (pt ("\xe2\x97\x8f  Gravar"));    // ●
     stopButton.setButtonText   (pt ("\xe2\x96\xa0  Parar"));     // ■
-    exportButton.setButtonText ("Exportar");
-    exportButton.setTooltip (pt ("Volta a montar o último vídeo com a Sincronização atual e mostra-o no Finder"));
+    exportButton.setButtonText ("Abrir pasta");
+    exportButton.setTooltip (pt ("Abre no Finder a pasta dos vídeos (o MP4 é exportado sozinho quando carrega em Parar)"));
 
     clearButton.setButtonText (pt ("Limpar pasta"));
     clearButton.setTooltip (pt ("Apaga de vez todos os vídeos e áudios gravados (Filmes > 808 Reels Capture)"));
@@ -51,7 +51,7 @@ ReelsCaptureEditor::ReelsCaptureEditor (ReelsCaptureProcessor& p)
 
     recordButton.onClick = [this] { processor.startRecording(); updateButtons(); };
     stopButton.onClick   = [this] { processor.stopRecording();  updateButtons(); };
-    exportButton.onClick = [this] { processor.exportAgain(); updateButtons(); };
+    exportButton.onClick = [this] { processor.revealLastExport(); };
 
     cropSlider.setSliderStyle (juce::Slider::LinearHorizontal);
     cropSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
@@ -85,8 +85,8 @@ ReelsCaptureEditor::ReelsCaptureEditor (ReelsCaptureProcessor& p)
     syncSlider.setRange (-300.0, 500.0, 10.0);
     syncSlider.setValue (processor.getSyncOffsetMs(), juce::dontSendNotification);
     syncSlider.setDoubleClickReturnValue (true, 0.0);
-    syncSlider.setTooltip (pt ("Ajuste fino: se a imagem aparecer atrasada em relação ao som, mova para a direita. "
-                               "Depois carregue em Exportar para refazer o último vídeo (duplo clique = 0)."));
+    syncSlider.setTooltip (pt ("Opcional: a sincronização já é automática. Se mesmo assim a imagem parecer atrasada, "
+                               "mova para a direita; vale para as próximas gravações (duplo clique = 0)."));
     syncSlider.onValueChange = [this] { processor.setSyncOffsetMs ((float) syncSlider.getValue()); repaint (videoArea); };
 
     cropYSlider.setRange (0.0, 1.0, 0.0);
@@ -285,7 +285,7 @@ void ReelsCaptureEditor::updateButtons()
 
     recordButton.setEnabled (state == S::idle);
     stopButton.setEnabled (state == S::recording);
-    exportButton.setEnabled (state != S::recording);
+    exportButton.setEnabled (true);
     clearButton.setEnabled (processor.canClearOutputFolder());
 
     recordButton.setToggleState (state == S::recording, juce::dontSendNotification);
@@ -298,7 +298,7 @@ void ReelsCaptureEditor::updateButtons()
     if (state == S::exporting)
         exportButton.setButtonText ("A exportar " + juce::String (juce::roundToInt (processor.getExportProgress() * 100.0f)) + "%");
     else
-        exportButton.setButtonText ("Exportar");
+        exportButton.setButtonText ("Abrir pasta");
 }
 
 void ReelsCaptureEditor::timerCallback()
