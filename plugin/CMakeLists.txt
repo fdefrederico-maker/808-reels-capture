@@ -48,6 +48,11 @@ target_compile_definitions(C00KUP PUBLIC
     JUCE_DISPLAY_SPLASH_SCREEN=0
 )
 
+# O código-fonte está em UTF-8 (textos com acentos)
+if(MSVC)
+    target_compile_options(C00KUP PRIVATE /utf-8)
+endif()
+
 target_link_libraries(C00KUP
     PRIVATE
         C00KUPAssets

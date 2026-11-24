@@ -105,6 +105,8 @@ public:
     EngineLink& getEngineLink()            { return engineLink; }
 
     static juce::File getOutputFolder();
+    /** "Filmes > C00KUP" no Mac, "Vídeos > C00KUP" no Windows (para mostrar ao utilizador). */
+    static juce::String getOutputFolderDisplayName();
 
     // "Limpar pasta": apaga DEFINITIVAMENTE tudo o que está na pasta de saída
     struct FolderUsage { int files = 0; juce::int64 bytes = 0; };

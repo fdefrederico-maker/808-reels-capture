@@ -15,6 +15,12 @@ EngineLink::~EngineLink()
 
 juce::File EngineLink::findEngineApp()
 {
+   #if JUCE_WINDOWS
+    // Instalado pelo C00KUP-Setup.exe em C:\Program Files\808College\C00KUP
+    auto exe = juce::File::getSpecialLocation (juce::File::globalApplicationsDirectory)
+                   .getChildFile ("808College").getChildFile ("C00KUP").getChildFile ("C00KUP Engine.exe");
+    return exe.existsAsFile() ? exe : juce::File();
+   #else
     const juce::String name ("C00KUP Engine.app");
 
     for (auto dir : { juce::File::getSpecialLocation (juce::File::userHomeDirectory).getChildFile ("Applications"),
@@ -26,6 +32,7 @@ juce::File EngineLink::findEngineApp()
     }
 
     return {};
+   #endif
 }
 
 void EngineLink::setActive (bool shouldBeActive)
@@ -65,7 +72,11 @@ void EngineLink::timerCallback()
 
     if (! app.exists())
     {
+       #if JUCE_WINDOWS
+        engineMessage = pt ("Motor não instalado: falta o \"C00KUP Engine\". Volte a correr o C00KUP-Setup.exe.");
+       #else
         engineMessage = pt ("Motor não instalado: falta \"C00KUP Engine\" em Aplicações. Volte a correr o instalador.");
+       #endif
         return;
     }
 
@@ -75,7 +86,7 @@ void EngineLink::timerCallback()
     {
         lastLaunchMs = now;
         engineMessage = pt ("A abrir o motor de vídeo...");
-        app.startAsProcess();   // abre via LaunchServices (como um duplo clique)
+        app.startAsProcess();   // abre como um duplo clique (LaunchServices no Mac, ShellExecute no Windows)
     }
 }
 

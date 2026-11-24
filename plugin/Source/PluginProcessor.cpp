@@ -118,6 +118,15 @@ namespace
     }
 }
 
+juce::String ReelsCaptureProcessor::getOutputFolderDisplayName()
+{
+   #if JUCE_WINDOWS
+    return juce::String::fromUTF8 ("Vídeos > C00KUP");
+   #else
+    return "Filmes > C00KUP";
+   #endif
+}
+
 juce::File ReelsCaptureProcessor::getOutputFolder()
 {
     return juce::File::getSpecialLocation (juce::File::userMoviesDirectory)

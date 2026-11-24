@@ -74,7 +74,7 @@ ReelsCaptureEditor::ReelsCaptureEditor (ReelsCaptureProcessor& p)
     };
 
     setupButton (clearButton, style::square, "LIMPAR PASTA",
-                 pt ("Apaga de vez todos os vídeos e áudios gravados (Filmes > C00KUP)"));
+                 pt ("Apaga de vez todos os vídeos e áudios gravados (") + ReelsCaptureProcessor::getOutputFolderDisplayName() + ")");
     setupButton (imageButton, style::square, "IMAGEM", pt ("Escolher a imagem de fundo (JPG, PNG, HEIC)"));
     setupButton (recordButton, style::pillRecord, "GRAVAR", pt ("Começa a gravar o master, a câmara e o FL"));
     setupButton (stopButton, style::pillStop, "PARAR", pt ("Para e exporta o MP4 automaticamente"));
@@ -728,7 +728,8 @@ void ReelsCaptureEditor::askToClearFolder()
     const auto mb = juce::String ((double) usage.bytes / (1024.0 * 1024.0), 1);
     const auto message = pt ("Vão ser apagados DEFINITIVAMENTE ") + juce::String (usage.files)
                        + pt (" ficheiros (") + mb + pt (" MB): todos os MP4, WAV e vídeos brutos em\n")
-                       + pt ("Filmes > C00KUP.\n\nNão vão para o Lixo e não podem ser recuperados.");
+                       + ReelsCaptureProcessor::getOutputFolderDisplayName()
+                       + pt (".\n\nNão vão para o Lixo/Reciclagem e não podem ser recuperados.");
 
     juce::Component::SafePointer<ReelsCaptureEditor> safeThis (this);
     juce::NativeMessageBox::showAsync (juce::MessageBoxOptions()
