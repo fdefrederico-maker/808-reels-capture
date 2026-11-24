@@ -52,8 +52,7 @@ da GitHub). Cada envio de código gera automaticamente uma versão nova na pági
 
 ### Interface
 
-Desenhada segundo [`design-c00kup/SPEC.md`](../design-c00kup/SPEC.md) (direção D). Janela fixa
-**760 × 600 px**: lombada vermelha com o símbolo e o wordmark C00KUP rodado, loudness em
+Desenhada segundo [`design-c00kup/SPEC.md`](../design-c00kup/SPEC.md) (direção D). Janela de **760 × 600 px**, que se pode esticar até ao dobro (1520 × 1200, mesma proporção; o tamanho fica guardado no projeto do FL): lombada vermelha com o símbolo e o wordmark C00KUP rodado, loudness em
 grande, medidores L/R horizontais, controlos de vídeo, três knobs, pré-visualização 9:16 e
 rodapé com Gravar / Parar / Abrir pasta, timecode e estado.
 
