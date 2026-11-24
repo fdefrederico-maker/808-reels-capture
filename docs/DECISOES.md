@@ -39,26 +39,9 @@ da GitHub). Cada envio de código gera automaticamente uma versão nova na pági
 
 Janela de **760 × 600 px**, tema escuro. Três colunas + linha de estado + 3 botões.
 
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│ 808  REELS CAPTURE                          48.0 kHz  [Limpar pasta] │
-├──────────┬─────────────────────────────┬─────────────────────────────┤
-│ MASTER   │ LOUDNESS                    │  ┌───────────────┐          │
-│ medidores│  Momentary  -11.2 LUFS      │  │ pré-visual.   │          │
-│ L / R    │  Short-term -11.2 LUFS      │  │ 9:16 ao vivo  │          │
-│ pico+RMS │ ───────────────────────     │  │ (câmara + FL) │          │
-│ clip     │ VÍDEO                       │  └───────────────┘          │
-│ max dB   │  [✓] Câmara no topo         │  ─────●───── (esq./dir.)    │
-│          │  Fundo  [Sala original ▾] [Imagem...]                     │
-│          │  Efeito [Nenhum ▾]          │  Arraste = mover · roda=zoom│
-│          │  Zoom FL    ●────── 1.0x    │                             │
-│          │  Cima/baixo ───●───         │                             │
-│          │  Sincroniz. ──●──  0 ms     │                             │
-├──────────┴─────────────────────────────┴─────────────────────────────┤
-│ linha de estado (mensagens: "MP4 pronto na pasta…", avisos…)         │
-│ [ ● Gravar ]           [ ■ Parar ]            [ Abrir pasta ]        │
-└──────────────────────────────────────────────────────────────────────┘
-```
+![Janela atual do plugin](interface-plugin.png)
+
+*(Captura da janela atual. A pré-visualização aparece vazia porque foi tirada sem o motor ligado; no uso real mostra a câmara + o FL ao vivo.)*
 
 ### Cores atuais (para o designer)
 
