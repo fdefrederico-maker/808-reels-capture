@@ -1,0 +1,14 @@
+#!/bin/bash
+# Depois de instalar o C00KUP.
+CONSOLE_USER=$(stat -f%Su /dev/console)
+
+if [ -f /private/tmp/c00kup-reset-permissions ]; then
+    tccutil reset ScreenCapture com.808college.c00kup.engine >/dev/null 2>&1 || true
+    [ -n "$CONSOLE_USER" ] && sudo -u "$CONSOLE_USER" tccutil reset Camera com.808college.c00kup.engine >/dev/null 2>&1 || true
+    rm -f /private/tmp/c00kup-reset-permissions
+fi
+
+# Obriga o macOS a voltar a ler a lista de Audio Units
+killall -9 AudioComponentRegistrar 2>/dev/null || true
+
+exit 0

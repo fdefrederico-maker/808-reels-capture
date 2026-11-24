@@ -151,6 +151,9 @@ Tudo o que se escolhe (câmara, fundo, efeito, zoom…) fica **guardado em cada 
 | Porta da ligação plugin ↔ motor passou de 48808 para 48809 | Se o motor antigo "808 Reels Engine" ainda estiver instalado ou aberto, o C00KUP não fala com ele por engano. |
 | Arcos dos knobs Altura e Sincronia partem do topo (zero) | É o que diz a SPEC e o pedido ("bipolares"). O HTML de referência desenhava-os a partir do mínimo; seguiu-se a SPEC. Sincronia passou a −500…+500 ms para o zero ficar no topo. |
 | Medidores com 0 dB aos 90% da barra | SPEC: escala de −54 a +6 dB. |
+| Instalador **.pkg** sem custos (não assinado pela Apple) | Distribuição gratuita: sem conta Apple Developer (99 USD/ano). Na 1.ª vez o utilizador carrega em "Abrir mesmo assim" em Privacidade e Segurança. Instala em /Library e /Applications e remove versões antigas/duplicadas. |
+| Assinatura própria (certificado "C00KUP 808College", grátis) | Mantém a mesma identidade do motor entre versões, para o macOS não voltar a pedir as permissões de ecrã e câmara a cada atualização. A chave fica só nos Secrets do GitHub. |
+| Windows fica para depois | O plugin compila, mas o motor de vídeo tem de ser reescrito para Windows; precisa de quem teste num PC. |
 | Instalador remove sozinho a versão antiga | O FL vê o C00KUP como um plugin novo; assim não ficam dois plugins nem dois motores. Os vídeos antigos não são tocados. |
 
 ---

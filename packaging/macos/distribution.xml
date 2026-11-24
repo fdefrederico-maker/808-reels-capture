@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<installer-gui-script minSpecVersion="2">
+    <title>C00KUP</title>
+    <organization>art.808college</organization>
+    <welcome file="welcome.html" mime-type="text/html"/>
+    <conclusion file="conclusion.html" mime-type="text/html"/>
+    <license file="licenca.html" mime-type="text/html"/>
+    <options customize="never" require-scripts="false" hostArchitectures="x86_64,arm64"/>
+    <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
+    <volume-check>
+        <allowed-os-versions>
+            <os-version min="13.0"/>
+        </allowed-os-versions>
+    </volume-check>
+    <choices-outline>
+        <line choice="default">
+            <line choice="art.808college.c00kup"/>
+        </line>
+    </choices-outline>
+    <choice id="default"/>
+    <choice id="art.808college.c00kup" visible="false" title="C00KUP">
+        <pkg-ref id="com.808college.c00kup.pkg"/>
+    </choice>
+    <pkg-ref id="com.808college.c00kup.pkg" version="__VERSION__" onConclusion="none">C00KUP-component.pkg</pkg-ref>
+</installer-gui-script>

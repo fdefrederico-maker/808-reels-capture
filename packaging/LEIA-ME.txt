@@ -1,18 +1,22 @@
 C00KUP · 808College — plugin (VST3 + AU) + motor de vídeo
 ==========================================================
 
-INSTALAR (repetir a cada versão nova)
+INSTALAR (recomendado): instalador .pkg
+
+1. Descarregue C00KUP-v….pkg e faça duplo clique.
+2. Se o macOS disser que não consegue verificar o programador: carregue em
+   "Concluído", vá a Definições do Sistema > Privacidade e Segurança, desça até
+   ao fim e carregue em "Abrir mesmo assim" ao lado do C00KUP. Depois "Abrir".
+3. Siga o assistente (Continuar > Instalar > palavra-passe do Mac).
+   Remove também a versão antiga "808 Reels Capture", se existir.
+
+INSTALAR (alternativa): pelo Terminal, com este zip
 
 1. Feche o FL Studio.
 2. Abra a app "Terminal" (Cmd + Espaço, escreva Terminal, Enter).
 3. Cole esta linha e carregue em Enter:
 
    bash ~/Downloads/C00KUP/instalar.sh
-
-   (Se a pasta não estiver em Transferências/Downloads, escreva "bash " com
-   um espaço e arraste o ficheiro instalar.sh para a janela do Terminal.)
-
-   O instalador também remove a versão antiga "808 Reels Capture", se existir.
 
 PRIMEIRA VEZ (e depois de cada atualização): AUTORIZAR ECRÃ E CÂMARA
 
@@ -32,9 +36,16 @@ ONDE FICAM OS FICHEIROS (o botão "LIMPAR PASTA" do plugin apaga tudo de vez)
 
 O QUE É INSTALADO
 
-  ~/Library/Audio/Plug-Ins/VST3/C00KUP.vst3
-  ~/Library/Audio/Plug-Ins/Components/C00KUP.component
-  ~/Applications/C00KUP Engine.app   (abre sozinho; não aparece no Dock)
+  Instalador .pkg (para todos os utilizadores do Mac):
+    /Library/Audio/Plug-Ins/VST3/C00KUP.vst3
+    /Library/Audio/Plug-Ins/Components/C00KUP.component
+    /Applications/C00KUP Engine.app   (abre sozinho; não aparece no Dock)
+
+  Script de Terminal (só para o seu utilizador): as mesmas peças em ~/Library e ~/Applications.
+
+DESINSTALAR (no Terminal)
+
+  sudo rm -rf /Library/Audio/Plug-Ins/VST3/C00KUP.vst3 /Library/Audio/Plug-Ins/Components/C00KUP.component "/Applications/C00KUP Engine.app" "/Library/Application Support/808College/C00KUP" ~/Library/Audio/Plug-Ins/VST3/C00KUP.vst3 ~/Library/Audio/Plug-Ins/Components/C00KUP.component ~/Applications/"C00KUP Engine.app"; sudo pkgutil --forget com.808college.c00kup.pkg
 
 Fontes Schibsted Grotesk e Martian Mono: licença SIL Open Font License
 (ver a pasta Licencas).

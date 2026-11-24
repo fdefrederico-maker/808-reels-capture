@@ -1,0 +1,33 @@
+#!/bin/bash
+# Antes de instalar o C00KUP: fecha os motores e remove versões antigas/duplicadas.
+CONSOLE_USER=$(stat -f%Su /dev/console)
+USER_HOME=$(dscl . -read "/Users/$CONSOLE_USER" NFSHomeDirectory 2>/dev/null | awk '{print $2}')
+
+pkill -x C00KUPEngine 2>/dev/null || true
+pkill -x ReelsEngine 2>/dev/null || true
+
+# Se o motor instalado tinha assinatura ad-hoc (versões antigas), as permissões guardadas
+# deixam de corresponder à nova assinatura: marcar para as limpar no fim.
+for app in "/Applications/C00KUP Engine.app" "$USER_HOME/Applications/C00KUP Engine.app"; do
+    if [ -d "$app" ] && codesign -dv "$app" 2>&1 | grep -q "Signature=adhoc"; then
+        touch /private/tmp/c00kup-reset-permissions
+    fi
+done
+
+# Versão antiga "808 Reels Capture"
+for base in "" "$USER_HOME"; do
+    rm -rf "$base/Library/Audio/Plug-Ins/VST3/808 Reels Capture.vst3" \
+           "$base/Library/Audio/Plug-Ins/Components/808 Reels Capture.component" \
+           "$base/Applications/808 Reels Engine.app"
+done
+tccutil reset ScreenCapture com.reels808.engine >/dev/null 2>&1 || true
+[ -n "$CONSOLE_USER" ] && sudo -u "$CONSOLE_USER" tccutil reset Camera com.reels808.engine >/dev/null 2>&1 || true
+
+# Cópias do C00KUP instaladas pelo script (pasta do utilizador): evitar duplicados no FL
+if [ -n "$USER_HOME" ]; then
+    rm -rf "$USER_HOME/Library/Audio/Plug-Ins/VST3/C00KUP.vst3" \
+           "$USER_HOME/Library/Audio/Plug-Ins/Components/C00KUP.component" \
+           "$USER_HOME/Applications/C00KUP Engine.app"
+fi
+
+exit 0

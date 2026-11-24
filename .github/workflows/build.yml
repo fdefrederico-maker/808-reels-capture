@@ -40,7 +40,35 @@ jobs:
         run: swift build -c release --arch arm64 --arch x86_64
 
       # ----------------------------------------------------------------- Pacote
-      - name: Assinar (ad-hoc) e preparar pacote
+      - name: Preparar a assinatura (certificado próprio do C00KUP, se existir)
+        env:
+          P12_BASE64: ${{ secrets.C00KUP_SIGNING_P12 }}
+          P12_PASSWORD: ${{ secrets.C00KUP_SIGNING_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${P12_BASE64}" ]; then
+            echo "Sem certificado nos Secrets: assinatura ad-hoc (as permissões voltam a ser pedidas a cada versão)."
+            echo "SIGN_IDENTITY=-" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          KC="$RUNNER_TEMP/c00kup.keychain-db"
+          KC_PASS="$(openssl rand -hex 12)"
+          echo "$P12_BASE64" | base64 --decode > "$RUNNER_TEMP/c00kup.p12"
+          security create-keychain -p "$KC_PASS" "$KC"
+          security set-keychain-settings -lut 21600 "$KC"
+          security unlock-keychain -p "$KC_PASS" "$KC"
+          security import "$RUNNER_TEMP/c00kup.p12" -k "$KC" -P "$P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KC_PASS" "$KC" >/dev/null
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          rm -f "$RUNNER_TEMP/c00kup.p12"
+          # Certificado próprio (não é da Apple): usar pelo identificador SHA-1
+          HASH=$(security find-identity -p codesigning "$KC" | awk '/C00KUP 808College/ {print $2; exit}')
+          if [ -z "$HASH" ]; then echo "Certificado não encontrado no keychain"; exit 1; fi
+          echo "Assinatura própria: C00KUP 808College ($HASH)"
+          echo "SIGN_IDENTITY=$HASH" >> "$GITHUB_ENV"
+          echo "SIGN_KEYCHAIN=$KC" >> "$GITHUB_ENV"
+
+      - name: Assinar e preparar pacote
         run: |
           set -euo pipefail
           ART="build/plugin/C00KUP_artefacts/Release"
@@ -62,10 +90,14 @@ jobs:
           plutil -replace CFBundleVersion -string "$GITHUB_RUN_NUMBER" "$APP/Contents/Info.plist"
           plutil -lint "$APP/Contents/Info.plist"
 
+          KC_ARGS=()
+          if [ -n "${SIGN_KEYCHAIN:-}" ]; then KC_ARGS=(--keychain "$SIGN_KEYCHAIN"); fi
           for b in "$PKG/C00KUP.vst3" "$PKG/C00KUP.component" "$APP"; do
-            codesign --force --deep --sign - --timestamp=none "$b"
-            codesign --verify --deep --strict --verbose=2 "$b"
+            codesign --force --deep --sign "$SIGN_IDENTITY" ${KC_ARGS[@]+"${KC_ARGS[@]}"} --timestamp=none "$b"
+            codesign --verify --deep --verbose=2 "$b"
           done
+          echo "Requisito de identidade do motor (o que o macOS usa para lembrar as permissões):"
+          codesign -d -r- "$APP" 2>&1 | tail -1
 
           lipo -info "$PKG/C00KUP.vst3/Contents/MacOS/C00KUP"
           lipo -info "$APP/Contents/MacOS/C00KUPEngine"
@@ -78,10 +110,55 @@ jobs:
           (cd dist && ditto -c -k --sequesterRsrc --keepParent "C00KUP" "C00KUP-v${VERSION}.zip")
           ls -la dist
 
+      - name: Criar o instalador .pkg
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/pkgroot"
+          rm -rf "$ROOT" && mkdir -p "$ROOT/Library/Audio/Plug-Ins/VST3" "$ROOT/Library/Audio/Plug-Ins/Components" \
+                                     "$ROOT/Applications" "$ROOT/Library/Application Support/808College/C00KUP/Licencas"
+          ditto "dist/C00KUP/C00KUP.vst3"        "$ROOT/Library/Audio/Plug-Ins/VST3/C00KUP.vst3"
+          ditto "dist/C00KUP/C00KUP.component"   "$ROOT/Library/Audio/Plug-Ins/Components/C00KUP.component"
+          ditto "dist/C00KUP/C00KUP Engine.app"  "$ROOT/Applications/C00KUP Engine.app"
+          cp plugin/Assets/OFL-*.txt "$ROOT/Library/Application Support/808College/C00KUP/Licencas/"
+
+          # Instalar sempre nos sítios certos (não "procurar" cópias antigas noutro lado)
+          pkgbuild --analyze --root "$ROOT" "$RUNNER_TEMP/components.plist"
+          i=0
+          while /usr/libexec/PlistBuddy -c "Print :$i" "$RUNNER_TEMP/components.plist" >/dev/null 2>&1; do
+            /usr/libexec/PlistBuddy -c "Set :$i:BundleIsRelocatable false" "$RUNNER_TEMP/components.plist"
+            i=$((i+1))
+          done
+
+          pkgbuild --root "$ROOT" --component-plist "$RUNNER_TEMP/components.plist" \
+                   --identifier com.808college.c00kup.pkg --version "$VERSION" \
+                   --scripts packaging/macos/scripts --install-location / \
+                   "$RUNNER_TEMP/C00KUP-component.pkg"
+
+          sed "s/__VERSION__/$VERSION/" packaging/macos/distribution.xml > "$RUNNER_TEMP/distribution.xml"
+          productbuild --distribution "$RUNNER_TEMP/distribution.xml" \
+                       --resources packaging/macos/resources \
+                       --package-path "$RUNNER_TEMP" \
+                       "dist/C00KUP-v${VERSION}.pkg"
+          pkgutil --payload-files "dist/C00KUP-v${VERSION}.pkg" | grep -E "C00KUP\.(vst3|component)$|Engine\.app$"
+          ls -la dist
+
+      - name: Testar o instalador .pkg (instala neste Mac)
+        run: |
+          set -euo pipefail
+          sudo installer -pkg "dist/C00KUP-v${VERSION}.pkg" -target / -verboseR | tail -5
+          for f in "/Library/Audio/Plug-Ins/VST3/C00KUP.vst3" "/Library/Audio/Plug-Ins/Components/C00KUP.component" \
+                   "/Applications/C00KUP Engine.app/Contents/MacOS/C00KUPEngine" \
+                   "/Applications/C00KUP Engine.app/Contents/Resources/AppIcon.icns"; do
+            if [ -e "$f" ]; then echo "OK  $f"; else echo "FALTA  $f"; exit 1; fi
+          done
+          codesign --verify --deep "/Applications/C00KUP Engine.app" && echo "OK  assinatura do motor intacta"
+          pkgutil --pkg-info com.808college.c00kup.pkg
+
       - name: Validar o Audio Unit (auval)
         run: |
           mkdir -p ~/Library/Audio/Plug-Ins/Components
           cp -R "dist/C00KUP/C00KUP.component" ~/Library/Audio/Plug-Ins/Components/
+          sudo rm -rf /Library/Audio/Plug-Ins/Components/C00KUP.component   # deixar só uma cópia para o auval
           killall -9 AudioComponentRegistrar 2>/dev/null || true
           sleep 3
           auval -v aufx C00k Cl8g
@@ -109,21 +186,23 @@ jobs:
           if lsof -nP -iTCP:48809 -sTCP:LISTEN; then echo "Motor a escutar: OK"; else echo "Motor NÃO está a escutar"; kill $PID || true; exit 1; fi
           kill $PID || true
 
-      - name: Guardar o zip como artefacto da compilação
+      - name: Guardar o instalador e o zip como artefactos da compilação
         uses: actions/upload-artifact@v4
         with:
           name: C00KUP-v${{ env.VERSION }}
-          path: dist/C00KUP-v${{ env.VERSION }}.zip
+          path: |
+            dist/C00KUP-v${{ env.VERSION }}.pkg
+            dist/C00KUP-v${{ env.VERSION }}.zip
 
       - name: Publicar na página Releases
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="v${VERSION}"
-          gh release create "$TAG" "dist/C00KUP-v${VERSION}.zip" \
+          gh release create "$TAG" "dist/C00KUP-v${VERSION}.pkg" "dist/C00KUP-v${VERSION}.zip" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "C00KUP v${VERSION}" \
             --notes "Compilação automática do ramo \`${GITHUB_REF_NAME}\` (commit ${GITHUB_SHA::7}).
 
-          Descarregue o ficheiro .zip abaixo e siga o LEIA-ME.txt que está dentro."
+          Instalador: descarregue C00KUP-v${VERSION}.pkg e faça duplo clique. O .zip é a alternativa por Terminal (ver LEIA-ME.txt)."
