@@ -6,7 +6,7 @@ import Network
 //   [UInt32 LE número mágico][UInt32 LE tamanho][conteúdo]
 // O 1.º byte do conteúdo é o tipo: 'J' = JSON, 'F' = JPEG.
 final class IPCServer {
-    static let magic: UInt32 = 0x3830_3852   // "R808"
+    static let magic: UInt32 = 0x4B30_3043   // "C00K"
     static let typeJSON: UInt8 = 0x4A        // 'J'
     static let typeFrame: UInt8 = 0x46       // 'F'
 

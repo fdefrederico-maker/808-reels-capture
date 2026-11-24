@@ -1,5 +1,5 @@
-808 Reels Capture — plugin (VST3 + AU) + motor de vídeo
-=======================================================
+C00KUP · 808College — plugin (VST3 + AU) + motor de vídeo
+==========================================================
 
 INSTALAR (repetir a cada versão nova)
 
@@ -7,30 +7,34 @@ INSTALAR (repetir a cada versão nova)
 2. Abra a app "Terminal" (Cmd + Espaço, escreva Terminal, Enter).
 3. Cole esta linha e carregue em Enter:
 
-   bash ~/Downloads/808-Reels-Capture/instalar.sh
+   bash ~/Downloads/C00KUP/instalar.sh
 
    (Se a pasta não estiver em Transferências/Downloads, escreva "bash " com
    um espaço e arraste o ficheiro instalar.sh para a janela do Terminal.)
 
-PRIMEIRA VEZ (e depois de cada atualização): AUTORIZAR A GRAVAÇÃO DE ECRÃ
+   O instalador também remove a versão antiga "808 Reels Capture", se existir.
 
-1. Abra o FL Studio e o plugin "808 Reels Capture" no Master.
-2. O macOS pergunta se "808 Reels Engine" pode gravar o ecrã: clique em
-   "Abrir Definições do Sistema" e ative "808 Reels Engine".
+PRIMEIRA VEZ (e depois de cada atualização): AUTORIZAR ECRÃ E CÂMARA
+
+1. Abra o FL Studio: Options > Manage plugins > Find more plugins.
+2. No Mixer, na pista Master, abra o plugin "C00KUP" (808College).
+3. O macOS pergunta se "C00KUP Engine" pode gravar o ecrã: clique em
+   "Abrir Definições do Sistema" e ative "C00KUP Engine".
    (Caminho: Definições do Sistema > Privacidade e Segurança >
     Gravação de ecrã e áudio do sistema)
-3. Feche a janela do plugin, espere 3 segundos e volte a abri-la.
-   A pré-visualização vertical deve aparecer.
+4. Quando pedir acesso à Câmara, clique em Permitir.
+5. Feche a janela do plugin, espere 3 segundos e volte a abri-la.
 
-ONDE FICAM OS FICHEIROS (o botão "Limpar pasta" do plugin apaga tudo de vez)
+ONDE FICAM OS FICHEIROS (o botão "LIMPAR PASTA" do plugin apaga tudo de vez)
 
-  ~/Movies/808 Reels Capture/            -> os MP4 finais (Filmes)
-  ~/Movies/808 Reels Capture/Brutos/     -> WAV e vídeo sem som de cada take
+  ~/Movies/C00KUP/            -> os MP4 finais (Filmes)
+  ~/Movies/C00KUP/Brutos/     -> WAV e vídeo sem som de cada take
 
 O QUE É INSTALADO
 
-  ~/Library/Audio/Plug-Ins/VST3/808 Reels Capture.vst3
-  ~/Library/Audio/Plug-Ins/Components/808 Reels Capture.component
-  ~/Applications/808 Reels Engine.app   (abre sozinho; não aparece no Dock)
+  ~/Library/Audio/Plug-Ins/VST3/C00KUP.vst3
+  ~/Library/Audio/Plug-Ins/Components/C00KUP.component
+  ~/Applications/C00KUP Engine.app   (abre sozinho; não aparece no Dock)
 
-Na primeira vez o macOS pede também acesso à Câmara: clique em Permitir.
+Fontes Schibsted Grotesk e Martian Mono: licença SIL Open Font License
+(ver a pasta Licencas).

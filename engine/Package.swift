@@ -2,12 +2,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "ReelsEngine",
+    name: "C00KUPEngine",
     platforms: [.macOS(.v13)],
     targets: [
         .executableTarget(
-            name: "ReelsEngine",
-            path: "Sources/ReelsEngine",
+            name: "C00KUPEngine",
+            path: "Sources/C00KUPEngine",
             linkerSettings: [
                 .linkedFramework("ScreenCaptureKit"),
                 .linkedFramework("AVFoundation"),

@@ -5,13 +5,13 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>pt-PT</string>
     <key>CFBundleExecutable</key>
-    <string>ReelsEngine</string>
+    <string>C00KUPEngine</string>
     <key>CFBundleIdentifier</key>
-    <string>com.reels808.engine</string>
+    <string>com.808college.c00kup.engine</string>
     <key>CFBundleName</key>
-    <string>808 Reels Engine</string>
+    <string>C00KUP Engine</string>
     <key>CFBundleDisplayName</key>
-    <string>808 Reels Engine</string>
+    <string>C00KUP Engine</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -21,11 +21,13 @@
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <!-- Sem ícone no Dock nem menu: corre em segundo plano -->
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>LSUIElement</key>
     <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSCameraUsageDescription</key>
-    <string>O 808 Reels Engine usa a câmara para a incluir no vídeo vertical.</string>
+    <string>O C00KUP Engine usa a câmara para a incluir no vídeo vertical.</string>
 </dict>
 </plist>

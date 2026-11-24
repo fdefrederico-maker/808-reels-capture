@@ -87,12 +87,15 @@ public:
     float getZoom() const                  { return flZoom; }
 
     // Ajuste fino da sincronização (ms): positivo atrasa o som em relação à imagem
-    void setSyncOffsetMs (float ms)        { syncOffsetMs = juce::jlimit (-300.0f, 500.0f, ms); }
+    void setSyncOffsetMs (float ms)        { syncOffsetMs = juce::jlimit (-500.0f, 500.0f, ms); }
     float getSyncOffsetMs() const          { return syncOffsetMs; }
 
 
     float getExportProgress() const        { return exportProgress; }
     const juce::String& getStatusText() const { return statusText; }
+    bool isStatusError() const             { return statusIsError; }
+    const juce::String& getStatusDetail() const { return statusDetail; }   // texto completo (dica)
+    bool isVideoActive() const             { return videoActive; }
     bool hasLastExport() const             { return lastExport.existsAsFile(); }
 
     EngineLink& getEngineLink()            { return engineLink; }
@@ -134,7 +137,9 @@ private:
     int backgroundId = bgOriginal;
     juce::File backgroundImage;
     float exportProgress = 0.0f;
-    juce::String statusText;
+    juce::String statusText, statusDetail;
+    bool statusIsError = false;
+    void setStatus (const juce::String& shortText, bool isError = false, const juce::String& detail = {});
     juce::String currentTakeName;
     juce::File lastExport;
 

@@ -4,7 +4,7 @@ import CoreImage
 import CoreVideo
 import ImageIO
 
-// Autoteste executado no GitHub Actions:  ReelsEngine --selftest
+// Autoteste executado no GitHub Actions:  C00KUPEngine --selftest
 // Verifica o recorte vertical, a pré-visualização, a gravação H.264,
 // a exportação MP4 e a sincronização áudio/vídeo — sem precisar de ecrã.
 enum SelfTest {
@@ -16,7 +16,7 @@ enum SelfTest {
     }
 
     static func run() -> Int32 {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("808-selftest-\(getpid())")
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("c00kup-selftest-\(getpid())")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
 
         testCompositor()

@@ -20,7 +20,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     }
 
     private let session = AVCaptureSession()
-    private let videoQueue = DispatchQueue(label: "808reels.camera", qos: .userInteractive)
+    private let videoQueue = DispatchQueue(label: "c00kup.camera", qos: .userInteractive)
     private let lock = NSLock()
 
     private var configured = false
@@ -188,7 +188,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
             device.activeVideoMaxFrameDuration = target
             device.unlockForConfiguration()
         } catch {
-            NSLog("808 Reels Engine: não foi possível fixar 30 fps: \(error)")
+            NSLog("C00KUP Engine: não foi possível fixar 30 fps: \(error)")
         }
     }
 

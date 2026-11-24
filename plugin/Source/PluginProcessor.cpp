@@ -121,7 +121,7 @@ namespace
 juce::File ReelsCaptureProcessor::getOutputFolder()
 {
     return juce::File::getSpecialLocation (juce::File::userMoviesDirectory)
-               .getChildFile ("808 Reels Capture");
+               .getChildFile ("C00KUP");
 }
 
 namespace
@@ -151,18 +151,18 @@ void ReelsCaptureProcessor::clearOutputFolder()
 {
     if (! canClearOutputFolder())
     {
-        statusText = pt ("Não é possível limpar enquanto grava ou exporta.");
+        setStatus (pt ("Não dá para limpar a gravar"), true);
         return;
     }
 
     const auto folder = getOutputFolder();
 
-    // Segurança: só mexe exatamente em ~/Movies/808 Reels Capture (e nunca segue atalhos)
+    // Segurança: só mexe exatamente em ~/Movies/C00KUP (e nunca segue atalhos)
     if (! folder.isDirectory() || folder.isSymbolicLink()
-        || folder.getFileName() != "808 Reels Capture"
+        || folder.getFileName() != "C00KUP"
         || folder.getParentDirectory() != juce::File::getSpecialLocation (juce::File::userMoviesDirectory))
     {
-        statusText = pt ("A pasta já está vazia.");
+        setStatus (pt ("A pasta já está vazia"));
         return;
     }
 
@@ -183,10 +183,17 @@ void ReelsCaptureProcessor::clearOutputFolder()
     const auto freedMB = (double) (before.bytes - after.bytes) / (1024.0 * 1024.0);
 
     if (failed == 0)
-        statusText = pt ("Pasta limpa: ") + juce::String (before.files - after.files)
-                     + pt (" ficheiros apagados (") + juce::String (freedMB, 1) + " MB).";
+        setStatus (pt ("Pasta limpa · ") + juce::String (before.files - after.files) + pt (" ficheiros · ")
+                   + juce::String (freedMB, 0) + " MB");
     else
-        statusText = pt ("Alguns ficheiros não puderam ser apagados (") + juce::String (after.files) + pt (" ficaram).");
+        setStatus (pt ("Ficaram ") + juce::String (after.files) + pt (" ficheiros por apagar"), true);
+}
+
+void ReelsCaptureProcessor::setStatus (const juce::String& shortText, bool isError, const juce::String& detail)
+{
+    statusText = shortText;
+    statusIsError = isError;
+    statusDetail = detail.isNotEmpty() ? detail : shortText;
 }
 
 void ReelsCaptureProcessor::editorVisibilityChanged (bool editorIsOpen)
@@ -202,7 +209,7 @@ void ReelsCaptureProcessor::startRecording()
     if (sessionState != SessionState::idle)
         return;
 
-    currentTakeName = "808 Reels " + juce::Time::getCurrentTime().formatted ("%Y-%m-%d %H-%M-%S");
+    currentTakeName = "C00KUP " + juce::Time::getCurrentTime().formatted ("%Y-%m-%d %H-%M-%S");
 
     const auto folder = getOutputFolder();
     const auto raw = folder.getChildFile ("Brutos");
@@ -211,7 +218,7 @@ void ReelsCaptureProcessor::startRecording()
     juce::String error;
     if (! wavRecorder.start (raw.getChildFile (currentTakeName + ".wav"), error))
     {
-        statusText = error;
+        setStatus (pt ("Erro ao criar o WAV"), true, error);
         return;
     }
 
@@ -225,8 +232,7 @@ void ReelsCaptureProcessor::startRecording()
         { "output", folder.getChildFile (currentTakeName + ".mp4").getFullPathName() }
     }));
 
-    statusText = videoActive ? pt ("A gravar áudio e vídeo...")
-                             : pt ("A gravar só áudio (motor de vídeo não ligado).");
+    setStatus (videoActive ? juce::String() : pt ("A gravar só áudio (sem motor)"), ! videoActive);
 }
 
 void ReelsCaptureProcessor::stopRecording()
@@ -238,7 +244,8 @@ void ReelsCaptureProcessor::stopRecording()
 
     if (! take.ok)
     {
-        statusText = pt ("Nada gravado: o FL não enviou áudio (a música estava a tocar?).");
+        setStatus (pt ("Nada gravado: o FL estava parado?"), true,
+                   pt ("O FL não enviou áudio durante a gravação. Carregue em Play no FL antes de gravar."));
         engineLink.sendCommand (makeObject ({ { "cmd", "cancel" } }));
         sessionState = SessionState::idle;
         engineLink.setActive (editorOpen);
@@ -257,13 +264,13 @@ void ReelsCaptureProcessor::stopRecording()
     if (sent)
     {
         sessionState = SessionState::exporting;
-        statusText = pt ("A exportar o MP4...");
+        setStatus ({});
     }
     else
     {
         sessionState = SessionState::idle;
         engineLink.setActive (editorOpen);
-        statusText = pt ("Áudio guardado (sem vídeo): ") + take.file.getFileName();
+        setStatus (pt ("Só áudio guardado (sem vídeo)"), true, take.file.getFullPathName());
     }
 }
 
@@ -396,7 +403,7 @@ void ReelsCaptureProcessor::handleEngineEvent (const juce::var& ev)
     else if (event == "exported")
     {
         lastExport = juce::File (ev["path"].toString());
-        statusText = pt ("MP4 pronto na pasta: ") + lastExport.getFileName() + pt ("  (carregue em Abrir pasta)");
+        setStatus (pt ("MP4 pronto"), false, lastExport.getFullPathName());
         exportProgress = 1.0f;
         if (sessionState == SessionState::exporting)
             sessionState = SessionState::idle;
@@ -404,7 +411,9 @@ void ReelsCaptureProcessor::handleEngineEvent (const juce::var& ev)
     }
     else if (event == "error")
     {
-        statusText = ev["message"].toString();
+        const auto message = ev["message"].toString();
+        setStatus (message.upToFirstOccurrenceOf (".", false, false).upToFirstOccurrenceOf (":", false, false),
+                   true, message);
         if (sessionState == SessionState::recording)
             videoActive = false;
         if (sessionState == SessionState::exporting)
@@ -418,12 +427,12 @@ void ReelsCaptureProcessor::handleEngineEvent (const juce::var& ev)
         if (sessionState == SessionState::recording && videoActive)
         {
             videoActive = false;
-            statusText = pt ("O motor fechou: a gravar só áudio.");
+            setStatus (pt ("O motor fechou: só áudio"), true);
         }
         else if (sessionState == SessionState::exporting)
         {
             sessionState = SessionState::idle;
-            statusText = pt ("O motor fechou durante a exportação.");
+            setStatus (pt ("O motor fechou a exportar"), true);
             engineLink.setActive (editorOpen);
         }
     }
@@ -431,7 +440,7 @@ void ReelsCaptureProcessor::handleEngineEvent (const juce::var& ev)
 
 void ReelsCaptureProcessor::getStateInformation (juce::MemoryBlock& dest)
 {
-    juce::XmlElement xml ("ReelsCapture");
+    juce::XmlElement xml ("C00KUP");
     xml.setAttribute ("cropX", (double) cropPosition);
     xml.setAttribute ("cropY", (double) cropY);
     xml.setAttribute ("zoom", (double) flZoom);
@@ -446,7 +455,7 @@ void ReelsCaptureProcessor::getStateInformation (juce::MemoryBlock& dest)
 void ReelsCaptureProcessor::setStateInformation (const void* data, int size)
 {
     if (auto xml = getXmlFromBinary (data, size))
-        if (xml->hasTagName ("ReelsCapture"))
+        if (xml->hasTagName ("C00KUP"))
         {
             cropPosition = (float) xml->getDoubleAttribute ("cropX", 0.5);
             cropY = (float) xml->getDoubleAttribute ("cropY", 0.5);

@@ -5,7 +5,7 @@ import CoreImage
 
 // Coordena tudo. Todo o estado é alterado apenas na fila `queue`.
 final class Engine {
-    static let port: UInt16 = 48808
+    static let port: UInt16 = 48809   // 48808 era o "808 Reels Engine" antigo
     static let version = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "dev"
 
     private enum State { case idle, recording, draining, finishing, exporting }
@@ -29,7 +29,7 @@ final class Engine {
     /// instante já terem chegado (as webcams entregam as imagens 0,1-0,3 s depois).
     static let renderDelay: Double = 0.8
 
-    private let queue = DispatchQueue(label: "808reels.engine", qos: .userInteractive)
+    private let queue = DispatchQueue(label: "c00kup.engine", qos: .userInteractive)
     private lazy var server = IPCServer(queue: queue)
     private lazy var capture = WindowCapture(queue: queue)
     private let camera = CameraCapture()
@@ -84,7 +84,7 @@ final class Engine {
         }
         server.onFatalError = { message in
             // Normalmente: já existe outro motor a correr nesta porta
-            NSLog("808 Reels Engine: \(message)")
+            NSLog("C00KUP Engine: \(message)")
             DispatchQueue.main.async { NSApp.terminate(nil) }
         }
 
@@ -109,7 +109,7 @@ final class Engine {
         do {
             try server.start(port: Engine.port)
         } catch {
-            NSLog("808 Reels Engine: não foi possível abrir o socket: \(error)")
+            NSLog("C00KUP Engine: não foi possível abrir o socket: \(error)")
             DispatchQueue.main.async { NSApp.terminate(nil) }
             return
         }
@@ -247,7 +247,7 @@ final class Engine {
             guard cameraRunning else { return screen }
             return screen + syncNote()
         case .noPermission:
-            return "Sem permissão da Câmara. Ative \"808 Reels Engine\" em Definições do Sistema > Privacidade e Segurança > Câmara. " + screen
+            return "Sem permissão da Câmara. Ative \"C00KUP Engine\" em Definições do Sistema > Privacidade e Segurança > Câmara. " + screen
         case .noCamera:
             return "Nenhuma câmara encontrada. " + screen
         case .failed(let text):
@@ -277,7 +277,7 @@ final class Engine {
     private func screenStatusMessage() -> String {
         switch capture.problem {
         case .noPermission:
-            return "Sem permissão de Gravação de ecrã. Ative \"808 Reels Engine\" em Definições do Sistema > Privacidade e Segurança > Gravação de ecrã e áudio do sistema. Depois feche e volte a abrir esta janela."
+            return "Sem permissão de Gravação de ecrã. Ative \"C00KUP Engine\" em Definições do Sistema > Privacidade e Segurança > Gravação de ecrã e áudio do sistema. Depois feche e volte a abrir esta janela."
         case .noWindow:
             return "Janela do FL Studio não encontrada (está minimizada?)."
         case .failed(let text):
@@ -468,14 +468,14 @@ final class Engine {
         // dispositivo de saída (ex.: Bluetooth): a imagem deve alinhar com o que se OUVIU.
         let heardDelay = outputLatency?.seconds ?? 0
         let audioOffset = HostClock.seconds(from: recorder.startTicks, to: stop.audioStartTicks) + heardDelay
-        NSLog("808 Reels Engine: saída de som +\(Int(heardDelay * 1000)) ms, câmara pronta em \(Int(cameraArrivalLatency * 1000)) ms")
+        NSLog("C00KUP Engine: saída de som +\(Int(heardDelay * 1000)) ms, câmara pronta em \(Int(cameraArrivalLatency * 1000)) ms")
 
         state = .finishing
         self.recorder = nil
         pendingStop = nil
 
         if recorder.droppedFrames > 0 {
-            NSLog("808 Reels Engine: \(recorder.droppedFrames) frames perdidos")
+            NSLog("C00KUP Engine: \(recorder.droppedFrames) frames perdidos")
         }
 
         recorder.finish { [weak self] result in

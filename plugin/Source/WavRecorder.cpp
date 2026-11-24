@@ -1,6 +1,6 @@
 #include "WavRecorder.h"
 
-WavRecorder::WavRecorder() : juce::Thread ("808 Reels WAV writer") {}
+WavRecorder::WavRecorder() : juce::Thread ("C00KUP WAV writer") {}
 
 WavRecorder::~WavRecorder()
 {
@@ -65,9 +65,9 @@ bool WavRecorder::start (const juce::File& file, juce::String& error)
     }
 
     const auto now = juce::Time::getCurrentTime();
-    const auto bwav = juce::WavAudioFormat::createBWAVMetadata ("808 Reels Capture - master",
-                                                               "808 Reels Capture",
-                                                               "808RC",
+    const auto bwav = juce::WavAudioFormat::createBWAVMetadata ("C00KUP - master",
+                                                               "C00KUP (808College)",
+                                                               "C00KUP",
                                                                now, 0, "A=PCM,F=48000,W=24,M=stereo");
     std::unordered_map<juce::String, juce::String> metadata;
     for (auto& key : bwav.getAllKeys())

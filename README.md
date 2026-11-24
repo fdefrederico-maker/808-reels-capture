@@ -1,45 +1,30 @@
-# 808 Reels Capture
+# C00KUP · 808College
 
-Ferramenta pessoal para gravar sessões do FL Studio (macOS, Apple Silicon) e
-transformá-las em vídeos verticais 9:16 para Reels.
+Plugin para o **Master do FL Studio (macOS)** que grava a sessão e entrega
+automaticamente um **vídeo vertical 1080×1920 pronto para Reels/TikTok**:
+câmara no topo, janela do FL em baixo, som do master, efeitos retro opcionais.
 
-## Peças
+| Peça | Descrição |
+|---|---|
+| Plugin **C00KUP** (VST3 + AU, JUCE 8) | Loudness LUFS, medidores L/R, controlos de vídeo, pré-visualização 9:16 ao vivo, Gravar / Parar / Abrir pasta / Limpar pasta. Grava o master em WAV 48 kHz. |
+| **C00KUP Engine** (Swift, sem ícone no Dock) | Aberto pelo plugin. Capta o FL (ScreenCaptureKit) e a câmara, troca o fundo, aplica efeitos e exporta o MP4 sincronizado. |
 
-| Peça | Estado | Descrição |
-|---|---|---|
-| Plugin JUCE (VST3 + AU) | Feito | Vai no Master do FL. Medidores de pico/RMS e loudness (LUFS). |
-| Gravação WAV no plugin | Feito | Gravar / Parar; WAV 48 kHz / 24 bits com marca de tempo do relógio do sistema. |
-| Motor Swift (sem ícone no Dock) | Feito (ecrã) | Capta a janela do FL, pré-visualização 9:16 ao vivo no plugin, exporta MP4 1080x1920 30 fps H.264 + AAC. |
-| Câmara + fundo | Feito | Câmara numa faixa no topo (600 px), FL em baixo; troca da sala atrás da pessoa (desfocada, cor ou imagem) com Vision. |
-| Efeitos retro | Feito | VHS, Filme 8mm, Glitch ao ritmo (graves do master) e TV antiga P&B. |
-| Título | Próxima fase | Texto sobre o vídeo. |
+## Compilação
 
-## Como funciona a sincronização
-
-O plugin regista o `mach_absolute_time` do primeiro bloco de áudio gravado; o motor
-regista o mesmo relógio no início do vídeo e escreve o frame *n* no instante
-`início + n/30`. Na exportação, o WAV é deslocado pela diferença entre os dois.
-O autoteste do motor (`ReelsEngine --selftest`, corre no GitHub Actions) confirma
-que um flash na imagem e um clique no áudio ficam alinhados no MP4.
-
-## Como é compilado
-
-Não é preciso Mac de desenvolvimento nem Xcode. Cada vez que há um `push` para o
-GitHub, o workflow [`.github/workflows/build.yml`](.github/workflows/build.yml)
-corre num Mac da GitHub, compila o plugin e o motor (Universal: Apple Silicon + Intel),
-assina-os com assinatura ad-hoc, corre os testes e publica um `.zip` na página **Releases**.
+Cada `push` corre o workflow [`.github/workflows/build.yml`](.github/workflows/build.yml)
+num Mac do GitHub: compila (Universal), assina ad-hoc, valida o AU, corre o autoteste do
+motor e publica `C00KUP-vX.Y.Z.zip` na página **Releases**.
 
 ## Instalar
 
-Veja [`packaging/LEIA-ME.txt`](packaging/LEIA-ME.txt) (também vem dentro do zip).
+Ver [`packaging/LEIA-ME.txt`](packaging/LEIA-ME.txt) (também vem dentro do zip).
 
 ## Estrutura
 
 ```
-CMakeLists.txt              Projeto principal (descarrega o JUCE 8 automaticamente)
-plugin/CMakeLists.txt       Definição do plugin (nome, códigos, formatos)
-plugin/Source/              Código C++ do plugin
-engine/                     Motor em Swift (SwiftPM; a .app é montada no workflow)
-packaging/                  Script de instalação e instruções incluídos no zip
-.github/workflows/          Compilação automática no GitHub Actions
+design-c00kup/              Pacote de design (SPEC.md = fonte de verdade do visual)
+plugin/                     Plugin JUCE (C++); plugin/Assets = fontes OFL e SVG embutidos
+engine/                     Motor em Swift (SwiftPM) + ícone (AppIcon.iconset)
+packaging/                  Instalador e LEIA-ME incluídos no zip
+docs/DECISOES.md            Tudo o que foi feito e porquê
 ```

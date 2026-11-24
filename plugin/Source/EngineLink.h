@@ -4,7 +4,7 @@
 #include <juce_graphics/juce_graphics.h>
 #include <functional>
 
-// Ligação ao motor "808 Reels Engine" (app em Swift) por socket local (127.0.0.1).
+// Ligação ao motor "C00KUP Engine" (app em Swift) por socket local (127.0.0.1).
 //
 // Formato de cada mensagem (igual ao InterprocessConnection do JUCE):
 //   [4 bytes número mágico LE][4 bytes tamanho LE][conteúdo]
@@ -15,8 +15,8 @@ class EngineLink : public juce::InterprocessConnection,
                    private juce::Timer
 {
 public:
-    static constexpr int port = 48808;
-    static constexpr juce::uint32 magic = 0x38303852;   // "R808"
+    static constexpr int port = 48809;   // 48808 era o "808 Reels Engine" antigo
+    static constexpr juce::uint32 magic = 0x4B303043;   // "C00K"
 
     EngineLink();
     ~EngineLink() override;
@@ -31,6 +31,7 @@ public:
     int previewCounter = 0;
     juce::String engineMessage;        // texto curto para mostrar ao utilizador
     bool engineCapturing = false;      // o motor está a captar a janela do FL
+    bool engineMissing = false;        // a app do motor não está instalada
 
     std::function<void (const juce::var&)> onEvent;   // eventos JSON do motor
 

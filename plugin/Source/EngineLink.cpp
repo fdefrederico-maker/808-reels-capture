@@ -15,7 +15,7 @@ EngineLink::~EngineLink()
 
 juce::File EngineLink::findEngineApp()
 {
-    const juce::String name ("808 Reels Engine.app");
+    const juce::String name ("C00KUP Engine.app");
 
     for (auto dir : { juce::File::getSpecialLocation (juce::File::userHomeDirectory).getChildFile ("Applications"),
                       juce::File ("/Applications") })
@@ -61,9 +61,11 @@ void EngineLink::timerCallback()
 
     const auto app = findEngineApp();
 
+    engineMissing = ! app.exists();
+
     if (! app.exists())
     {
-        engineMessage = pt ("Motor não instalado (falta \"808 Reels Engine\" em Aplicações).");
+        engineMessage = pt ("Motor não instalado: falta \"C00KUP Engine\" em Aplicações. Volte a correr o instalador.");
         return;
     }
 
