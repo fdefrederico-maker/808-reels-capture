@@ -27,7 +27,7 @@ final class Engine {
 
     /// O vídeo é montado com este atraso fixo, para a imagem da câmara e do FL de cada
     /// instante já terem chegado (as webcams entregam as imagens 0,1-0,3 s depois).
-    static let renderDelay: Double = 0.4
+    static let renderDelay: Double = 0.8
 
     private let queue = DispatchQueue(label: "808reels.engine", qos: .userInteractive)
     private lazy var server = IPCServer(queue: queue)
@@ -44,6 +44,10 @@ final class Engine {
     private let cameraRing = FrameRing(maxAge: Engine.renderDelay + 0.5)
     private var levelHistory: [(ticks: UInt64, value: Double)] = []
     private var levelsFedUntil: UInt64 = 0
+
+    // Atrasos medidos automaticamente
+    private var outputLatency: AudioOutputLatency.Info?
+    private var cameraArrivalLatency: Double = 0     // da captura até estar pronta para o vídeo
 
     private var state: State = .idle
     private var recorder: VideoRecorder?
@@ -96,6 +100,9 @@ final class Engine {
             self.queue.async {
                 guard self.cameraRunning, let band = self.compositor.renderCameraBand(frame) else { return }
                 self.cameraRing.push(band, ticks: ticks)
+                let ready = HostClock.seconds(from: ticks, to: HostClock.now())
+                self.cameraArrivalLatency = self.cameraArrivalLatency == 0 ? ready
+                    : max(ready, self.cameraArrivalLatency * 0.98 + ready * 0.02)
             }
         }
 
@@ -215,6 +222,7 @@ final class Engine {
 
     private func onSlowTick() {
         updateCamera()
+        outputLatency = AudioOutputLatency.current()
 
         if server.clientCount > 0 {
             lastClientTime = Date()
@@ -236,12 +244,8 @@ final class Engine {
 
         switch camera.problem {
         case .none:
-            let ms = Int((camera.measuredLatency * 1000).rounded())
-            guard cameraRunning, ms > 0 else { return screen }
-            let note = Double(ms) / 1000 > Engine.renderDelay
-                ? " Câmara: atraso \(ms) ms (acima do compensado: use a Sincronização)."
-                : " Câmara: atraso \(ms) ms (compensado)."
-            return screen + note
+            guard cameraRunning else { return screen }
+            return screen + syncNote()
         case .noPermission:
             return "Sem permissão da Câmara. Ative \"808 Reels Engine\" em Definições do Sistema > Privacidade e Segurança > Câmara. " + screen
         case .noCamera:
@@ -249,6 +253,21 @@ final class Engine {
         case .failed(let text):
             return text + " " + screen
         }
+    }
+
+    /// Resumo da sincronização automática (só informativo).
+    private func syncNote() -> String {
+        var parts: [String] = []
+        let camMs = Int((max(camera.measuredLatency, cameraArrivalLatency) * 1000).rounded())
+        if camMs > 0 { parts.append("câmara \(camMs) ms") }
+        if let out = outputLatency {
+            parts.append("som \(out.deviceName) \(Int((out.seconds * 1000).rounded())) ms")
+        }
+        guard !parts.isEmpty else { return "" }
+        let overloaded = cameraArrivalLatency > Engine.renderDelay
+        return overloaded
+            ? " Sincronização: o Mac não está a acompanhar (" + parts.joined(separator: ", ") + "). Experimente sem efeito ou sem trocar o fundo."
+            : " Sincronização automática: " + parts.joined(separator: ", ") + "."
     }
 
     private func screenStatusMessage() -> String {
@@ -322,7 +341,7 @@ final class Engine {
             if let bass = (object["bass"] as? NSNumber)?.doubleValue {
                 previewEffects.pushLevel(bass)
                 let ticks = (object["ticks"] as? String).flatMap { UInt64($0) } ?? HostClock.now()
-                levelHistory.append((ticks, bass))
+                levelHistory.append((ticks &+ HostClock.ticks(seconds: outputLatency?.seconds ?? 0), bass))
                 if levelHistory.count > 200 { levelHistory.removeFirst(levelHistory.count - 200) }
             }
 
@@ -441,8 +460,11 @@ final class Engine {
     private func finishRecording() {
         guard let recorder, let stop = pendingStop, let outputURL = pendingOutputURL else { return }
 
-        // Onde cai a 1.ª amostra do WAV na linha de tempo do vídeo
-        let audioOffset = HostClock.seconds(from: recorder.startTicks, to: stop.audioStartTicks)
+        // Onde cai a 1.ª amostra do WAV na linha de tempo do vídeo. Soma-se o atraso do
+        // dispositivo de saída (ex.: Bluetooth): a imagem deve alinhar com o que se OUVIU.
+        let heardDelay = outputLatency?.seconds ?? 0
+        let audioOffset = HostClock.seconds(from: recorder.startTicks, to: stop.audioStartTicks) + heardDelay
+        NSLog("808 Reels Engine: saída de som +\(Int(heardDelay * 1000)) ms, câmara pronta em \(Int(cameraArrivalLatency * 1000)) ms")
 
         state = .finishing
         self.recorder = nil

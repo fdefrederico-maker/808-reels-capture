@@ -151,6 +151,14 @@ enum SelfTest {
         // Instante anterior a tudo o que existe: usa a mais antiga em vez de nada
         check(ring.frame(at: t0) != nil, "anel de imagens: devolve sempre uma imagem")
 
+        // Latência do dispositivo de saída de som (no Mac do GitHub pode não haver nenhum)
+        if let out = AudioOutputLatency.current() {
+            print(String(format: "      saída de som: %@ = %.0f ms", out.deviceName, out.seconds * 1000))
+            check(out.seconds >= 0 && out.seconds <= 1, "latência da saída de som dentro de limites")
+        } else {
+            print("      saída de som: nenhum dispositivo (normal no Mac do GitHub)")
+        }
+
         // Conversão segundos <-> relógio do sistema
         let back = HostClock.seconds(from: t0, to: at(0.4))
         check(abs(back - 0.4) < 0.0001, String(format: "relógio: 0,4 s ida e volta (%.6f)", back))
